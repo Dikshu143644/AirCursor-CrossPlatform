@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import hmac
+import ipaddress
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import math
@@ -19,12 +21,16 @@ import os
 from pathlib import Path
 import socket
 import struct
+import secrets
 import threading
 import time
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 import urllib.parse
 
-from .pairing_qr import PairingQR, get_local_ip, get_pairing_url
+from .pairing_qr import (
+    PairingQR, get_local_ip, get_pairing_url,
+    generate_qr_matrix, matrix_to_ascii, matrix_to_svg, matrix_to_html,
+)
 
 # Standard WebSocket RFC 6455 Magic GUID
 WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
@@ -45,12 +51,36 @@ class WebRemoteRequestHandler(BaseHTTPRequestHandler):
     # CORS & Header Helpers
     # -------------------------------------------------------------------------
     def _send_cors_headers(self) -> None:
-        self.send_header("Access-Control-Allow-Origin", "*")
+        # This PWA is served from the same origin. Do not grant arbitrary
+        # websites cross-origin access to a desktop-control API.
+        self.send_header("Vary", "Origin")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header(
             "Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With"
         )
-        self.send_header("Access-Control-Max-Age", "86400")
+
+    def _is_loopback_client(self) -> bool:
+        try:
+            return ipaddress.ip_address(self.client_address[0]).is_loopback
+        except (ValueError, IndexError):
+            return False
+
+    def _is_authorized(self) -> bool:
+        scheme, separator, supplied = self.headers.get("Authorization", "").partition(" ")
+        return (
+            bool(separator)
+            and scheme.lower() == "bearer"
+            and hmac.compare_digest(supplied.strip(), self.server_instance.access_token)
+        )
+
+    def _require_authorization(self) -> bool:
+        if self._is_authorized():
+            return True
+        self._send_json(401, {
+            "error": "unauthorized",
+            "message": "Pair this device with the host QR code.",
+        })
+        return False
 
     def _send_json(self, status_code: int, data: dict) -> None:
         payload = json.dumps(data).encode("utf-8")
@@ -85,10 +115,29 @@ class WebRemoteRequestHandler(BaseHTTPRequestHandler):
             self._send_json(200, status_data)
             return
 
-        # 3. QR Endpoint: GET /api/qr
-        if path in ("/api/qr", "/qr"):
+        # Pairing credentials are disclosed only to a process running on the host.
+        if path == "/pair":
+            if not self._is_loopback_client():
+                self._send_json(403, {"error": "pairing QR is available from the host computer only"})
+                return
             qr_data = self.server_instance.get_qr_dict()
-            self._send_json(200, qr_data)
+            matrix = generate_qr_matrix(qr_data["url"])
+            html = matrix_to_html(matrix, qr_data["url"], title="AirCursor Secure Pairing")
+            body = html.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
+        # QR API also reveals the bearer credential; restrict it to loopback.
+        if path in ("/api/qr", "/qr"):
+            if not self._is_loopback_client():
+                self._send_json(403, {"error": "pairing QR is available from the host computer only"})
+                return
+            self._send_json(200, self.server_instance.get_qr_dict())
             return
 
         # 4. Web App Manifest
@@ -125,6 +174,9 @@ class WebRemoteRequestHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         parsed_url = urllib.parse.urlparse(self.path)
         path = parsed_url.path
+
+        if not self._require_authorization():
+            return
 
         try:
             content_len = int(self.headers.get("Content-Length", 0))
@@ -246,74 +298,84 @@ class WebRemoteRequestHandler(BaseHTTPRequestHandler):
             self.send_error(400, "Missing Sec-WebSocket-Key")
             return
 
-        # Calculate accept hash
         accept_token = base64.b64encode(
             hashlib.sha1((key.strip() + WS_GUID).encode("utf-8")).digest()
         ).decode("utf-8")
-
-        # Handshake response
         self.send_response(101, "Switching Protocols")
         self.send_header("Upgrade", "websocket")
         self.send_header("Connection", "Upgrade")
         self.send_header("Sec-WebSocket-Accept", accept_token)
         self.end_headers()
 
-        # Enter WebSocket bidirectional framing loop
         sock: socket.socket = self.connection
-        sock.settimeout(60.0)  # 60s idle timeout
-        self.server_instance._register_ws_client(sock)
-
         try:
+            # Require an authenticated first application frame before this
+            # socket is registered or any desktop-control command is accepted.
+            sock.settimeout(5.0)
+            first_frame = self._read_ws_frame(sock)
+            if first_frame is None or first_frame[0] != 0x1:
+                self._send_ws_frame(sock, 0x8, struct.pack("!H", 4003) + b"Authentication required")
+                return
+            try:
+                auth_message = json.loads(first_frame[1].decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                auth_message = {}
+            supplied = auth_message.get("token", "") if isinstance(auth_message, dict) else ""
+            if (
+                not isinstance(auth_message, dict)
+                or auth_message.get("type") != "auth"
+                or not isinstance(supplied, str)
+                or not hmac.compare_digest(supplied, self.server_instance.access_token)
+            ):
+                self._send_ws_frame(sock, 0x8, struct.pack("!H", 4003) + b"Unauthorized")
+                return
+
+            self.server_instance._register_ws_client(sock)
+            self._send_ws_frame(sock, 0x1, json.dumps({"type": "ready"}).encode("utf-8"))
+            sock.settimeout(60.0)
+
             while self.server_instance.is_running:
                 frame_data = self._read_ws_frame(sock)
                 if frame_data is None:
                     break
-
                 opcode, payload = frame_data
 
-                # Close frame (Opcode 0x8)
                 if opcode == 0x8:
                     self._send_ws_frame(sock, 0x8, b"")
                     break
-
-                # Ping frame (Opcode 0x9) -> respond with Pong (Opcode 0xA)
-                elif opcode == 0x9:
+                if opcode == 0x9:
                     self._send_ws_frame(sock, 0xA, payload)
+                    continue
+                if opcode != 0x1:
+                    continue
 
-                # Text frame (Opcode 0x1)
-                elif opcode == 0x1:
-                    try:
-                        text = payload.decode("utf-8")
-                        msg = json.loads(text)
-                        msg_type = msg.get("type", "")
-
-                        if msg_type == "action" or "action" in msg:
-                            act = str(msg.get("action", ""))
-                            dx = float(msg.get("dx", 0.0))
-                            dy = float(msg.get("dy", 0.0))
-                            self.server_instance.dispatch_action(act, dx=dx, dy=dy, extra=msg)
-
-                        elif msg_type == "motion" or "gyro" in msg or "dx" in msg or "dy" in msg:
-                            self.server_instance.dispatch_motion(msg)
-
-                        elif msg_type == "ping":
-                            resp = json.dumps({"type": "pong", "ts": msg.get("ts", 0)})
-                            self._send_ws_frame(sock, 0x1, resp.encode("utf-8"))
-
-                        elif msg_type == "get_status":
-                            resp = json.dumps({"type": "status", **self.server_instance.get_status_dict()})
-                            self._send_ws_frame(sock, 0x1, resp.encode("utf-8"))
-
-                    except Exception:
-                        pass
-
-        except Exception:
+                try:
+                    msg = json.loads(payload.decode("utf-8"))
+                    if not isinstance(msg, dict):
+                        continue
+                    msg_type = msg.get("type", "")
+                    if msg_type == "action" or "action" in msg:
+                        action = str(msg.get("action", ""))
+                        dx = float(msg.get("dx", 0.0))
+                        dy = float(msg.get("dy", 0.0))
+                        self.server_instance.dispatch_action(action, dx=dx, dy=dy, extra=msg)
+                    elif msg_type == "motion" or "gyro" in msg or "dx" in msg or "dy" in msg:
+                        self.server_instance.dispatch_motion(msg)
+                    elif msg_type == "ping":
+                        response = json.dumps({"type": "pong", "ts": msg.get("ts", 0)})
+                        self._send_ws_frame(sock, 0x1, response.encode("utf-8"))
+                    elif msg_type == "get_status":
+                        response = json.dumps({"type": "status", **self.server_instance.get_status_dict()})
+                        self._send_ws_frame(sock, 0x1, response.encode("utf-8"))
+                except (UnicodeDecodeError, json.JSONDecodeError, TypeError, ValueError):
+                    continue
+        except (OSError, TimeoutError, socket.timeout):
             pass
         finally:
             self.server_instance._unregister_ws_client(sock)
             try:
                 sock.close()
-            except Exception:
+            except OSError:
                 pass
 
     def _read_ws_frame(self, sock: socket.socket) -> Optional[Tuple[int, bytes]]:
@@ -346,6 +408,10 @@ class WebRemoteRequestHandler(BaseHTTPRequestHandler):
             if not ext:
                 return None
             plen = struct.unpack("!Q", ext)[0]
+
+        # Enforce the limit after decoding extended payload lengths.
+        if plen > 65536:
+            return None
 
         mask_key = None
         if is_masked:
@@ -393,10 +459,14 @@ class WebRemoteServer:
         port: int = 8765,
         controller: Optional[Any] = None,
         static_dir: Optional[Path | str] = None,
+        access_token: Optional[str] = None,
     ):
         self.host = host
         self.port = int(port)
         self.controller = controller
+        self.access_token = access_token or os.environ.get("AIRCURSOR_REMOTE_TOKEN") or secrets.token_urlsafe(32)
+        if len(self.access_token) < 20:
+            raise ValueError("access_token must contain at least 20 characters")
 
         # Locate static directory
         if static_dir is not None:
@@ -481,6 +551,8 @@ class WebRemoteServer:
             name=f"AirCursor-WebRemote-{self.port}",
         )
         self._server_thread.start()
+        print(f"[AirCursor Pairing] On this computer open http://127.0.0.1:{self.port}/pair to display the secure QR code.")
+        print(f"[AirCursor Pairing] Pairing token (keep private): {self.access_token}")
 
     def stop(self) -> None:
         """Stops the server, disconnects clients, and releases the listening port."""
@@ -714,11 +786,14 @@ class WebRemoteServer:
         }
 
     def get_qr_dict(self) -> dict:
-        """Returns dictionary containing URL and pairing QR codes."""
+        """Returns a token-bearing pairing URL; HTTP access is restricted to loopback."""
+        base_url = self.url.rstrip("/")
+        pairing_url = base_url + "/#token=" + urllib.parse.quote(self.access_token, safe="")
+        matrix = generate_qr_matrix(pairing_url)
         return {
-            "url": self.url,
+            "url": pairing_url,
             "ip": self.qr.ip,
             "port": self.port,
-            "qr_ascii": self.qr.to_ascii(),
-            "qr_svg": self.qr.to_svg(),
+            "qr_ascii": matrix_to_ascii(matrix),
+            "qr_svg": matrix_to_svg(matrix),
         }
