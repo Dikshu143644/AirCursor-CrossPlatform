@@ -11,6 +11,9 @@ Provides:
 from __future__ import annotations
 
 import argparse
+import hmac
+import ipaddress
+import secrets
 from http import HTTPStatus
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 import json
@@ -39,6 +42,8 @@ from aircursor_core.math_util import AngleMath, Vec2
 from aircursor_core.motion import MotionDifferentiator, MotionSample
 from aircursor_core.pointer import CursorHistory, PointerMapper, PointerSmoother
 from aircursor_core.settings import AppSettings
+from aircursor_core.pairing_qr import generate_qr_matrix, get_local_ip, matrix_to_html
+import urllib.parse
 
 
 class AirCursorServerController:
@@ -303,23 +308,60 @@ class AirCursorRequestHandler(SimpleHTTPRequestHandler):
         self.send_response(status_code)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         self.end_headers()
         self.wfile.write(body)
 
+    def _is_authorized(self) -> bool:
+        server = getattr(self.server, "aircursor_server", None)
+        if server is None:
+            return False
+        scheme, separator, supplied = self.headers.get("Authorization", "").partition(" ")
+        return (
+            bool(separator)
+            and scheme.lower() == "bearer"
+            and hmac.compare_digest(supplied.strip(), server.access_token)
+        )
+
+    def _is_loopback_client(self) -> bool:
+        try:
+            return ipaddress.ip_address(self.client_address[0]).is_loopback
+        except (ValueError, IndexError):
+            return False
+
     def do_OPTIONS(self) -> None:
         self.send_response(HTTPStatus.NO_CONTENT)
-        self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         self.end_headers()
 
     def do_GET(self) -> None:
         parsed_path = self.path.split("?")[0].rstrip("/")
         if parsed_path == "":
             parsed_path = "/"
+
+        # Host-local pairing QR; the credential is never exposed to LAN clients.
+        if parsed_path == "/pair":
+            if not self._is_loopback_client():
+                self.send_json_response({"error": "pairing QR is available from the host computer only"}, 403)
+                return
+            server = self.server.aircursor_server
+            pair_url = (
+                f"http://{get_local_ip()}:{server.http_port}/#token="
+                + urllib.parse.quote(server.access_token, safe="")
+            )
+            html = matrix_to_html(
+                generate_qr_matrix(pair_url), pair_url, title="AirCursor Secure Pairing"
+            )
+            body = html.encode("utf-8")
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+            return
 
         # 1. Healthcheck / Status Endpoint
         if parsed_path in ("/status", "/health", "/api/status"):
@@ -370,6 +412,10 @@ class AirCursorRequestHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self) -> None:
         parsed_path = self.path.split("?")[0].rstrip("/")
+
+        if not self._is_authorized():
+            self.send_json_response({"error": "unauthorized", "message": "Pair this device with the host QR code."}, 401)
+            return
 
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length) if content_length > 0 else b"{}"
@@ -443,12 +489,16 @@ class AirCursorServer:
         mode: str = "synthetic",
         autorun: bool = True,
         settings: Optional[AppSettings] = None,
+        access_token: Optional[str] = None,
     ) -> None:
         self.host = host
         self.http_port = http_port
         self.udp_port = udp_port
         self.mode = mode
         self.autorun = autorun
+        self.access_token = access_token or os.environ.get("AIRCURSOR_REMOTE_TOKEN") or secrets.token_urlsafe(32)
+        if len(self.access_token) < 20:
+            raise ValueError("access_token must contain at least 20 characters")
 
         self.controller = AirCursorServerController(
             settings=settings,
@@ -467,6 +517,7 @@ class AirCursorServer:
         self.controller.start()
 
         self._httpd = HTTPServer((self.host, self.http_port), AirCursorRequestHandler)
+        self._httpd.aircursor_server = self
         self._http_thread = threading.Thread(
             target=self._httpd.serve_forever,
             daemon=True,
@@ -476,6 +527,8 @@ class AirCursorServer:
         print(f"[+] AirCursor Server running on http://{self.host}:{self.http_port}")
         print(f"[+] UDP sensor listener active on {self.host}:{self.udp_port}/udp")
         print(f"[+] Mode: {self.mode.upper()}, Tracking: {'ON' if self.autorun else 'STANDBY'}")
+        print(f"[AirCursor Pairing] Access token (keep private): {self.access_token}")
+        print(f"[AirCursor Pairing] On this computer open http://127.0.0.1:{self.http_port}/pair for a secure QR code.")
 
     def stop(self) -> None:
         """Shuts down HTTP and Controller gracefully."""
