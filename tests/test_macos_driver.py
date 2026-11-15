@@ -1,6 +1,7 @@
 """Cross-platform unit tests for the macOS CoreGraphics event adapter."""
 import unittest
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from macos.driver import MacOSEventSynthesizer, MacOSDriverUnavailableError
 
@@ -87,8 +88,9 @@ class MacOSDriverTests(unittest.TestCase):
             self.driver.left_down(1, None)
 
     def test_missing_quartz_has_actionable_error(self):
-        with self.assertRaises(MacOSDriverUnavailableError):
-            MacOSEventSynthesizer(quartz=False)
+        with patch("macos.driver._QUARTZ", None):
+            with self.assertRaises(MacOSDriverUnavailableError):
+                MacOSEventSynthesizer()
 
 
 if __name__ == "__main__":
