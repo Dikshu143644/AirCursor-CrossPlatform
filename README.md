@@ -44,10 +44,18 @@ Install development dependencies and run platform-appropriate suites:
 
 ~~~bash
 python -m pip install -e ".[dev]"
-python -m unittest tests.test_core tests.test_web_remote tests.test_vision_tracker tests.test_subjects tests.test_devops tests.test_cad_blender -v
+# Platform-neutral core, remote, deployment and CAD checks
+python -m unittest tests.test_core tests.test_web_remote tests.test_devops tests.test_cad_blender -v
+
+# Windows-only vision/controller and native integration checks (run on Windows)
+python -m unittest discover -s tests -v
+python windows/test_windows_app.py
+
+# Linux input integration checks (run on Linux)
+PYTHONPATH=linux python -m unittest linux/test_linux.py -v
 ~~~
 
-Windows-specific suites should be run on Windows; Linux input tests should be run on Linux. CI is configured for Python 3.10–3.12 on Ubuntu and Windows.
+The vision test module includes the Windows AppController integration layer, so run it on Windows. CI is configured for Python 3.10–3.12 on Ubuntu and Windows.
 
 ## Deployment
 
