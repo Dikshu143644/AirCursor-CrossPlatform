@@ -11,9 +11,15 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
     nginx.ingress.kubernetes.io/websocket-services: "aircursor-service"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
 spec:
+  tls:
+    - hosts:
+        - aircursor.example.com
+      secretName: aircursor-tls
   rules:
-    - http:
+    - host: aircursor.example.com
+      http:
         paths:
           - path: /
             pathType: Prefix
@@ -22,10 +28,3 @@ spec:
                 name: aircursor-service
                 port:
                   number: 8765
-          - path: /vnc
-            pathType: Prefix
-            backend:
-              service:
-                name: aircursor-service
-                port:
-                  number: 6080
