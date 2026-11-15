@@ -75,12 +75,15 @@ class VisionFrameResult:
     face_box: Optional[Tuple[int, int, int, int]] = None  # (x, y, w, h)
     face_center: Optional[Tuple[float, float]] = None     # (cx, cy)
     nose_point: Optional[Tuple[float, float]] = None      # (nx, ny)
-    motion_sample: Optional[MotionSample] = None          # Converted head attitude
+    motion_sample: Optional[MotionSample] = None          # Converted head/hand attitude
     hand_detected: bool = False
     hand_box: Optional[Tuple[int, int, int, int]] = None
+    hand_center: Optional[Tuple[float, float]] = None     # (cx, cy)
+    hand_tip: Optional[Tuple[float, float]] = None        # (tx, ty) fingertip
     hand_gesture: HandGesture = HandGesture.NONE
     finger_count: int = 0
     confidence: float = 0.0
+    tracking_mode_used: str = "none"                      # "hand", "head", or "none"
 
 
 @dataclass
@@ -100,6 +103,8 @@ class VisionTrackerSettings:
     swipe_threshold: float = 120.0      # Pixels per second for vertical swipe
     enable_head_tracking: bool = True
     enable_hand_gestures: bool = True
+    enable_hand_tracking: bool = True   # Enable hand motion to move the cursor
+    hand_sensitivity: float = 2.5       # Responsiveness multiplier for hand motion
 
 
 class VisionTracker:
@@ -125,6 +130,12 @@ class VisionTracker:
         # Tracking state
         self._neutral_center: Optional[Tuple[float, float]] = None
         self._last_face_center: Optional[Tuple[float, float]] = None
+        self._neutral_hand: Optional[Tuple[float, float]] = None
+        self._last_hand_time: float = 0.0
+        self._prev_hand_pt: Optional[Tuple[float, float]] = None
+        self._smoothed_hand_pt: Optional[Tuple[float, float]] = None
+        self._hand_yaw: float = 0.0
+        self._hand_pitch: float = 0.0
         self._last_gesture: HandGesture = HandGesture.NONE
         self._last_gesture_time: float = 0.0
         self._hand_history: List[Tuple[float, float]] = []  # [(timestamp, y_center)]
@@ -174,8 +185,13 @@ class VisionTracker:
                     pass
 
     def recenter(self) -> None:
-        """Recenters the reference face position to the next detected center."""
+        """Recenters reference face and hand positions."""
         self._neutral_center = None
+        self._neutral_hand = None
+        self._prev_hand_pt = None
+        self._smoothed_hand_pt = None
+        self._hand_yaw = 0.0
+        self._hand_pitch = 0.0
 
     def start(self) -> bool:
         """Starts the vision capture worker thread."""
@@ -305,6 +321,7 @@ class VisionTracker:
         # 1. Head / Face & Nose Pose Tracking
         # -------------------------------------------------------------
         face_box = None
+        face_sample = None
         if self.settings.enable_head_tracking:
             face_box = self._detect_face(frame)
             if face_box is not None:
@@ -342,24 +359,31 @@ class VisionTracker:
                 pitch_rad = -norm_dy * self.settings.pitch_sensitivity
                 roll_rad = 0.0
 
-                sample = MotionSample(
+                face_sample = MotionSample(
                     timestamp=now,
                     yaw=float(yaw_rad),
                     pitch=float(pitch_rad),
                     roll=float(roll_rad),
                 )
-                result.motion_sample = sample
                 self._last_face_center = (cx, cy)
 
         # -------------------------------------------------------------
-        # 2. Hand Presence & Gesture Recognition
+        # 2. Hand Presence, Gesture Recognition & Motion Tracking
         # -------------------------------------------------------------
-        if self.settings.enable_hand_gestures:
+        hand_sample = None
+        if self.settings.enable_hand_gestures or getattr(self.settings, "enable_hand_tracking", True):
             hand_contour, hierarchy = self._detect_hand_contour(frame, face_box=face_box)
             if hand_contour is not None and len(hand_contour) >= 5:
                 hx, hy, hw, hh = cv2.boundingRect(hand_contour)
                 result.hand_detected = True
                 result.hand_box = (hx, hy, hw, hh)
+
+                # Locate fingertip (highest point / minimum Y) and hand center
+                topmost = tuple(hand_contour[hand_contour[:, :, 1].argmin()][0])
+                hand_tip = (float(topmost[0]), float(topmost[1]))
+                hand_center = (float(hx + hw / 2.0), float(hy + hh / 2.0))
+                result.hand_tip = hand_tip
+                result.hand_center = hand_center
 
                 gesture, finger_count, conf = self.classify_hand_contour(
                     hand_contour, hierarchy=hierarchy, frame_shape=(h, w), now=now
@@ -367,6 +391,73 @@ class VisionTracker:
                 result.hand_gesture = gesture
                 result.finger_count = finger_count
                 result.confidence = conf
+
+                # Generate Hand Motion Sample for cursor movement
+                if getattr(self.settings, "enable_hand_tracking", True):
+                    # Tracking point: blend fingertip and centroid for stability and responsiveness
+                    ctrl_x = hand_tip[0] * 0.7 + hand_center[0] * 0.3
+                    ctrl_y = hand_tip[1] * 0.7 + hand_center[1] * 0.3
+                    ctrl_pt = (ctrl_x, ctrl_y)
+
+                    if self._neutral_hand is None or (now - self._last_hand_time > 0.4):
+                        self._neutral_hand = ctrl_pt
+                        self._prev_hand_pt = ctrl_pt
+                        self._smoothed_hand_pt = ctrl_pt
+                        self._hand_yaw = 0.0
+                        self._hand_pitch = 0.0
+
+                    alpha = 0.65
+                    sx = alpha * ctrl_x + (1.0 - alpha) * self._smoothed_hand_pt[0]
+                    sy = alpha * ctrl_y + (1.0 - alpha) * self._smoothed_hand_pt[1]
+                    self._smoothed_hand_pt = (sx, sy)
+
+                    p_sx, p_sy = self._prev_hand_pt
+                    dx = sx - p_sx
+                    dy = sy - p_sy
+                    self._prev_hand_pt = (sx, sy)
+
+                    norm_dx = dx / max(w * 0.5, 1.0)
+                    norm_dy = dy / max(h * 0.5, 1.0)
+
+                    if abs(norm_dx) < self.settings.deadzone * 0.3:
+                        norm_dx = 0.0
+                    if abs(norm_dy) < self.settings.deadzone * 0.3:
+                        norm_dy = 0.0
+
+                    hand_sens = getattr(self.settings, "hand_sensitivity", 2.5)
+
+                    # In mirrored frame:
+                    # Move hand right (dx > 0) -> target cursor velocity right (dx > 0) -> rate.yaw < 0 -> delta_yaw < 0
+                    # Move hand left (dx < 0) -> target cursor velocity left (dx < 0) -> rate.yaw > 0 -> delta_yaw > 0
+                    # Move hand up (dy < 0) -> target cursor velocity up (dy < 0) -> rate.pitch > 0 -> delta_pitch > 0
+                    # Move hand down (dy > 0) -> target cursor velocity down (dy > 0) -> rate.pitch < 0 -> delta_pitch < 0
+                    delta_yaw = -norm_dx * self.settings.yaw_sensitivity * hand_sens
+                    delta_pitch = -norm_dy * self.settings.pitch_sensitivity * hand_sens
+
+                    self._hand_yaw += delta_yaw
+                    self._hand_pitch += delta_pitch
+
+                    hand_sample = MotionSample(
+                        timestamp=now,
+                        yaw=float(self._hand_yaw),
+                        pitch=float(self._hand_pitch),
+                        roll=0.0,
+                    )
+                    self._last_hand_time = now
+
+        # -------------------------------------------------------------
+        # 3. Arbitrate Output Motion Sample: Hand Priority over Head
+        # -------------------------------------------------------------
+        if hand_sample is not None and result.hand_detected:
+            # Active hand tracking moves cursor directly
+            result.motion_sample = hand_sample
+            result.tracking_mode_used = "hand"
+        elif face_sample is not None and result.face_detected:
+            # When hand is resting or out of view, head pose moves cursor
+            result.motion_sample = face_sample
+            result.tracking_mode_used = "head"
+        else:
+            result.tracking_mode_used = "none"
 
         return result
 
@@ -449,9 +540,18 @@ class VisionTracker:
         """Detects hand contour by segmenting skin regions and masking out the face."""
         h, w = frame.shape[:2]
 
-        # Generate skin mask
+        # Generate skin mask with dual YCrCb + HSV color spaces for lighting tolerance
         ycrcb = cv2.cvtColor(frame, cv2.COLOR_BGR2YCrCb)
-        skin_mask = cv2.inRange(ycrcb, np.array([0, 133, 77]), np.array([255, 173, 127]))
+        mask_ycrcb = cv2.inRange(ycrcb, np.array([0, 130, 75]), np.array([255, 180, 135]))
+
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        mask_hsv1 = cv2.inRange(hsv, np.array([0, 15, 35]), np.array([28, 255, 255]))
+        mask_hsv2 = cv2.inRange(hsv, np.array([165, 15, 35]), np.array([180, 255, 255]))
+        mask_hsv = cv2.bitwise_or(mask_hsv1, mask_hsv2)
+
+        skin_mask = cv2.bitwise_and(mask_ycrcb, mask_hsv)
+        if cv2.countNonZero(skin_mask) < (w * h * 0.005):
+            skin_mask = mask_ycrcb
 
         # If a face was detected, zero out the face region with a margin so it isn't mistaken for a hand
         if face_box is not None:

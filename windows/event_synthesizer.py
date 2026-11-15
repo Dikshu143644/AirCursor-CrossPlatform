@@ -59,15 +59,23 @@ VK_CONTROL = 0x11
 VK_MENU = 0x12  # Alt key
 VK_ESCAPE = 0x1B
 VK_SPACE = 0x20
+VK_PRIOR = 0x21  # Page Up
+VK_NEXT = 0x22   # Page Down
+VK_END = 0x23
+VK_HOME = 0x24
 VK_LEFT = 0x25
 VK_UP = 0x26
 VK_RIGHT = 0x27
 VK_DOWN = 0x28
 VK_SNAPSHOT = 0x2C  # PrintScreen
+VK_F11 = 0x7A
 VK_LWIN = 0x5B
 VK_RWIN = 0x5C
 VK_BROWSER_BACK = 0xA6
 VK_BROWSER_FORWARD = 0xA7
+VK_VOLUME_MUTE = 0xAD
+VK_VOLUME_DOWN = 0xAE
+VK_VOLUME_UP = 0xAF
 VK_MEDIA_NEXT_TRACK = 0xB0
 VK_MEDIA_PREV_TRACK = 0xB1
 VK_MEDIA_STOP = 0xB2
@@ -429,3 +437,84 @@ class EventSynthesizer:
     def screenshot(self) -> None:
         """Snipping tool (Win + Shift + S)."""
         self.key_stroke(ord("S"), modifiers=[VK_LWIN, VK_SHIFT])
+
+    # TV & Media Remote Controls
+    def volume_up(self) -> None:
+        """Increases system volume."""
+        self.key_stroke(VK_VOLUME_UP)
+
+    def volume_down(self) -> None:
+        """Decreases system volume."""
+        self.key_stroke(VK_VOLUME_DOWN)
+
+    def volume_mute(self) -> None:
+        """Toggles system audio mute."""
+        self.key_stroke(VK_VOLUME_MUTE)
+
+    def media_play_pause(self) -> None:
+        """Toggles media playback (Play/Pause)."""
+        self.key_stroke(VK_MEDIA_PLAY_PAUSE)
+
+    def media_next(self) -> None:
+        """Skips to next media track."""
+        self.key_stroke(VK_MEDIA_NEXT_TRACK)
+
+    def media_prev(self) -> None:
+        """Skips to previous media track."""
+        self.key_stroke(VK_MEDIA_PREV_TRACK)
+
+    def fullscreen(self) -> None:
+        """Toggles display fullscreen (F11)."""
+        self.key_stroke(VK_F11)
+
+    def show_desktop(self) -> None:
+        """Minimizes all windows to show desktop (Win + D)."""
+        self.key_stroke(ord("D"), modifiers=[VK_LWIN])
+
+    def press_key(self, key_name: str) -> None:
+        """Dispatches a named navigation key for D-pad or TV remote navigation."""
+        k = key_name.strip().lower()
+        key_map = {
+            "up": VK_UP,
+            "down": VK_DOWN,
+            "left": VK_LEFT,
+            "right": VK_RIGHT,
+            "enter": VK_RETURN,
+            "ok": VK_RETURN,
+            "select": VK_RETURN,
+            "return": VK_RETURN,
+            "esc": VK_ESCAPE,
+            "escape": VK_ESCAPE,
+            "space": VK_SPACE,
+            "tab": VK_TAB,
+            "backspace": VK_BACK,
+            "back": VK_BACK,
+            "home": VK_HOME,
+            "end": VK_END,
+            "page_up": VK_PRIOR,
+            "page_down": VK_NEXT,
+            "f11": VK_F11,
+        }
+        if k in key_map:
+            self.key_stroke(key_map[k])
+        elif len(k) == 1 and k.isalnum():
+            # Single character (e.g. number pad 0-9)
+            self.key_stroke(ord(k.upper()))
+
+    def type_text(self, text: str) -> None:
+        """Types unicode string into the active window."""
+        for ch in text:
+            code = ord(ch)
+            inp_down = INPUT()
+            inp_down.type = INPUT_KEYBOARD
+            inp_down.ki.wScan = code
+            inp_down.ki.dwFlags = KEYEVENTF_UNICODE
+
+            inp_up = INPUT()
+            inp_up.type = INPUT_KEYBOARD
+            inp_up.ki.wScan = code
+            inp_up.ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP
+
+            arr = (INPUT * 2)(inp_down, inp_up)
+            user32.SendInput(2, arr, ctypes.sizeof(INPUT))
+            time.sleep(0.005)

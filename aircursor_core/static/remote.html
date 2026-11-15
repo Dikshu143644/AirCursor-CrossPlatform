@@ -953,6 +953,238 @@
       justify-content: center;
       gap: 5px;
     }
+
+    /* -------------------------------------------------------------
+       TAB 6: DIGITAL BUTTON SCREEN REMOTE
+       ------------------------------------------------------------- */
+    .screen-hud-card {
+      background: rgba(10, 16, 28, 0.85);
+      border: 1px solid var(--cyan);
+      border-radius: 18px;
+      padding: 10px;
+      box-shadow: 0 8px 30px rgba(0, 240, 255, 0.15), inset 0 0 20px rgba(0, 0, 0, 0.8);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      position: relative;
+    }
+    .screen-meta-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      font-family: monospace;
+      color: var(--text-muted);
+    }
+    .screen-canvas-wrapper {
+      position: relative;
+      width: 100%;
+      padding-top: 56.25%;
+      background: #03060c;
+      border-radius: 10px;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      overflow: hidden;
+      cursor: crosshair;
+    }
+    .screen-grid {
+      position: absolute;
+      inset: 0;
+      opacity: 0.12;
+      background-image: 
+        linear-gradient(to right, var(--cyan) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--cyan) 1px, transparent 1px);
+      background-size: 20% 20%;
+      pointer-events: none;
+    }
+    .screen-crosshair-x {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: rgba(56, 189, 248, 0.2);
+      pointer-events: none;
+    }
+    .screen-crosshair-y {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: rgba(56, 189, 248, 0.2);
+      pointer-events: none;
+    }
+    .screen-cursor-dot {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--cyan);
+      border: 2px solid #fff;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 10px var(--cyan);
+      pointer-events: none;
+      transition: left 0.04s linear, top 0.04s linear;
+      z-index: 10;
+    }
+    .screen-footer-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .tactical-strip {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+    }
+    .btn-tactical {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 8px 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      color: var(--text-main);
+      font-size: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      transition: all 0.15s ease;
+    }
+    .btn-tactical svg {
+      width: 16px;
+      height: 16px;
+      stroke: var(--cyan);
+    }
+    .btn-tactical:active {
+      transform: scale(0.92);
+      background: rgba(0, 240, 255, 0.2);
+      border-color: var(--cyan);
+    }
+    .dpad-section {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      backdrop-filter: blur(16px);
+    }
+    .dpad-container {
+      position: relative;
+      width: 190px;
+      height: 190px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(15, 23, 42, 0.95) 0%, rgba(6, 11, 22, 0.95) 70%);
+      border: 2px solid rgba(56, 189, 248, 0.25);
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.7), inset 0 0 12px rgba(0, 240, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn-dpad {
+      position: absolute;
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.12s ease;
+      backdrop-filter: blur(8px);
+    }
+    .btn-dpad svg { width: 18px; height: 18px; stroke: var(--cyan); }
+    .btn-dpad:active { background: rgba(0, 240, 255, 0.3); border-color: var(--cyan); }
+    .btn-dpad.up { top: 6px; width: 58px; height: 46px; border-radius: 16px 16px 8px 8px; }
+    .btn-dpad.down { bottom: 6px; width: 58px; height: 46px; border-radius: 8px 8px 16px 16px; }
+    .btn-dpad.left { left: 6px; width: 46px; height: 58px; border-radius: 16px 8px 8px 16px; }
+    .btn-dpad.right { right: 6px; width: 46px; height: 58px; border-radius: 8px 16px 16px 8px; }
+    .btn-dpad-center {
+      width: 62px;
+      height: 62px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(0, 240, 255, 0.25) 0%, rgba(15, 23, 42, 0.95) 75%);
+      border: 2px solid var(--cyan);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 0 16px rgba(0, 240, 255, 0.25);
+      z-index: 5;
+    }
+    .btn-dpad-center:active {
+      transform: scale(0.92);
+      background: radial-gradient(circle, var(--cyan) 0%, rgba(37, 99, 235, 0.9) 80%);
+    }
+    .dpad-mode-pill {
+      display: flex;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 2px;
+    }
+    .dpad-mode-btn {
+      padding: 3px 8px;
+      border-radius: 10px;
+      border: none;
+      background: transparent;
+      color: var(--text-dim);
+      font-size: 10px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .dpad-mode-btn.active {
+      background: rgba(0, 240, 255, 0.2);
+      color: var(--cyan);
+    }
+    .media-cluster-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      backdrop-filter: blur(14px);
+    }
+    .row-btn-group {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+    .btn-control {
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 10px 4px;
+      color: var(--text-main);
+      font-size: 11px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn-control svg { width: 14px; height: 14px; stroke: var(--cyan); }
+    .btn-control:active { transform: scale(0.95); background: rgba(0, 240, 255, 0.25); border-color: var(--cyan); }
+    .btn-control.primary {
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.2), rgba(37, 99, 235, 0.25));
+      border-color: rgba(0, 240, 255, 0.4);
+      color: #fff;
+    }
   </style>
 </head>
 <body>
@@ -983,6 +1215,9 @@
     </button>
     <button class="tab-btn" data-tab="tabGyro">
       <span>🎯</span> Air Mouse
+    </button>
+    <button class="tab-btn" data-tab="tabButtonRemote">
+      <span>📺</span> Screen Remote
     </button>
     <button class="tab-btn" data-tab="tabActions">
       <span>⚡</span> Actions
@@ -1088,6 +1323,157 @@
         </button>
         <button class="btn-mouse" style="flex:1" id="btnToggleContinuous">
           <span id="contIcon">🔓</span> <span id="contText">Continuous: Off</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- TAB: DIGITAL BUTTON REMOTE WITH SCREEN -->
+    <section class="tab-pane" id="tabButtonRemote" style="overflow-y:auto; gap:10px; padding-bottom:30px;">
+      <!-- Standalone Deck Launcher Banner -->
+      <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(0,240,255,0.1); border:1px solid rgba(0,240,255,0.25); border-radius:12px; padding:6px 12px; font-size:11px;">
+        <span style="color:var(--cyan); font-weight:700;">📺 Digital Screen Controller</span>
+        <a href="/button-remote" target="_blank" style="color:#fff; background:var(--cyan-dim); text-decoration:none; padding:3px 8px; border-radius:6px; font-weight:700; font-size:10px;">Launch Fullscreen ↗</a>
+      </div>
+
+      <!-- 1. VIRTUAL SCREEN HUD DISPLAY (Interactive Mini-Screen) -->
+      <div class="screen-hud-card">
+        <div class="screen-meta-row">
+          <span>VIRTUAL SCREEN HUD</span>
+          <span id="tabScreenResTag">1920 × 1080</span>
+        </div>
+
+        <div class="screen-canvas-wrapper" id="tabScreenSurface">
+          <div class="screen-grid"></div>
+          <div class="screen-crosshair-x"></div>
+          <div class="screen-crosshair-y"></div>
+          <div class="screen-cursor-dot" id="tabCursorDot" style="left:50%; top:50%;"></div>
+        </div>
+
+        <div class="screen-footer-row">
+          <div>CURSOR: <span class="coords-tag" id="tabCursorCoords" style="color:var(--cyan); font-family:monospace; font-weight:700;">X: 960  Y: 540</span></div>
+          <div style="font-size:10px; color:var(--emerald);">● Tap screen to jump</div>
+        </div>
+      </div>
+
+      <!-- 2. TACTICAL POWER & DISPLAY ACTION STRIP -->
+      <div class="tactical-strip">
+        <button class="btn-tactical" data-action="fullscreen" title="Fullscreen (F11)">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+          <span>Fullscr</span>
+        </button>
+        <button class="btn-tactical" data-action="show_desktop" title="Show Desktop (Win+D)">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+          <span>Desk</span>
+        </button>
+        <button class="btn-tactical" data-action="task_view" title="Task View (Win+Tab)">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          <span>Tasks</span>
+        </button>
+        <button class="btn-tactical" data-action="recenter" title="Recenter Cursor">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+          <span>Center</span>
+        </button>
+        <button class="btn-tactical" data-action="pause" title="Pause Tracking">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+          <span>Pause</span>
+        </button>
+      </div>
+
+      <!-- 3. DIRECTIONAL D-PAD CLUSTER -->
+      <div class="dpad-section">
+        <div style="display:flex; justify-content:space-between; align-items:center; width:100%; padding:0 4px;">
+          <span style="font-size:12px; font-weight:700; color:var(--text-muted)">DIRECTIONAL PAD</span>
+          <div class="dpad-mode-pill">
+            <button class="dpad-mode-btn active" id="tabBtnModeArrows">Arrows</button>
+            <button class="dpad-mode-btn" id="tabBtnModeNudge">Nudge</button>
+          </div>
+        </div>
+
+        <div class="dpad-container">
+          <button class="btn-dpad up tab-dpad-btn" data-dir="up">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="3"><polyline points="18 15 12 9 6 15"/></svg>
+          </button>
+          <button class="btn-dpad down tab-dpad-btn" data-dir="down">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <button class="btn-dpad left tab-dpad-btn" data-dir="left">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="3"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <button class="btn-dpad right tab-dpad-btn" data-dir="right">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="3"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <button class="btn-dpad-center" id="tabDpadCenter">
+            <span>OK</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 4. TV NAVIGATION & MEDIA CONTROLS -->
+      <div class="media-cluster-card">
+        <div class="row-btn-group">
+          <button class="btn-control" data-action="volume_down">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+            <span>Vol -</span>
+          </button>
+          <button class="btn-control" data-action="volume_mute">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+            <span>Mute</span>
+          </button>
+          <button class="btn-control" data-action="volume_up">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+            <span>Vol +</span>
+          </button>
+        </div>
+
+        <div class="row-btn-group">
+          <button class="btn-control" data-action="media_prev">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="19" x2="5" y2="5"/></svg>
+            <span>Prev</span>
+          </button>
+          <button class="btn-control primary" data-action="media_play_pause">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <span>Play/Pause</span>
+          </button>
+          <button class="btn-control" data-action="media_next">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+            <span>Next</span>
+          </button>
+        </div>
+
+        <div class="row-btn-group">
+          <button class="btn-control" data-action="browser_back">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+            <span>Back</span>
+          </button>
+          <button class="btn-control" data-action="key_esc">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9l6 6M15 9l-6 6"/></svg>
+            <span>Esc</span>
+          </button>
+          <button class="btn-control" data-action="app_switch">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+            <span>Alt+Tab</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 5. PRIMARY MOUSE BUTTON BAR -->
+      <div class="row-btn-group">
+        <button class="btn-control primary" style="grid-column: span 2;" data-action="click">
+          <span>●</span> Left Click
+        </button>
+        <button class="btn-control" data-action="right_click">
+          <span>○</span> Right Click
+        </button>
+      </div>
+      <div class="row-btn-group">
+        <button class="btn-control" data-action="double_click">
+          <span>⚡</span> Double Click
+        </button>
+        <button class="btn-control" data-action="drag_toggle">
+          <span>✊</span> Drag Lock
+        </button>
+        <button class="btn-control" data-action="middle_click">
+          <span>🔘</span> Middle
         </button>
       </div>
     </section>

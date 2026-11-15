@@ -206,6 +206,20 @@ class TestWebRemoteServer(unittest.TestCase):
             body = res.read().decode("utf-8")
             self.assertIn("addEventListener", body)
 
+    def test_get_button_remote_endpoint(self):
+        """Verifies GET /button-remote and GET /tv serve the digital button screen remote."""
+        for path in ("/button-remote", "/tv"):
+            req = urllib.request.Request(f"{self.base_url}{path}")
+            with urllib.request.urlopen(req, timeout=3.0) as res:
+                self.assertEqual(res.status, 200)
+                content_type = res.headers.get("Content-Type", "")
+                self.assertIn("text/html", content_type)
+                body = res.read().decode("utf-8")
+                self.assertIn("AirCursor Digital Screen Remote", body)
+                self.assertIn("VIRTUAL SCREEN HUD", body)
+                self.assertIn("screen-canvas-wrapper", body)
+                self.assertIn("DIRECTIONAL PAD", body)
+
     def test_get_status_endpoint(self):
         """GET /status returns JSON with cursor pos, tracking source, connection count."""
         req = urllib.request.Request(f"{self.base_url}/status")
@@ -221,6 +235,9 @@ class TestWebRemoteServer(unittest.TestCase):
             self.assertIsInstance(data["connection_count"], int)
             self.assertIn("tracking_enabled", data)
             self.assertIn("mode", data)
+            self.assertIn("screen", data)
+            self.assertIn("width", data["screen"])
+            self.assertIn("height", data["screen"])
 
     def test_get_qr_endpoint(self):
         """GET /api/qr returns JSON with local IP URL and ASCII QR code."""
@@ -276,6 +293,49 @@ class TestWebRemoteServer(unittest.TestCase):
         self.assertEqual(scroll_entry[0], "scroll")
         self.assertEqual(scroll_entry[1], 10.0)
         self.assertEqual(scroll_entry[2], -25.0)
+
+    def test_dpad_and_media_actions(self):
+        """Verifies D-pad, media keys, text typing, and screen jump actions."""
+        received = []
+        self.server.set_action_callback(lambda act, dx, dy, extra: received.append((act, dx, dy, extra)))
+
+        button_actions = [
+            ("dpad_up", 0.0, 0.0, {}),
+            ("dpad_down", 0.0, 0.0, {}),
+            ("dpad_left", 0.0, 0.0, {}),
+            ("dpad_right", 0.0, 0.0, {}),
+            ("dpad_ok", 0.0, 0.0, {}),
+            ("volume_up", 0.0, 0.0, {}),
+            ("volume_down", 0.0, 0.0, {}),
+            ("volume_mute", 0.0, 0.0, {}),
+            ("media_play_pause", 0.0, 0.0, {}),
+            ("fullscreen", 0.0, 0.0, {}),
+            ("show_desktop", 0.0, 0.0, {}),
+            ("jump_to", 1280.0, 720.0, {}),
+            ("type_text", 0.0, 0.0, {"text": "AirCursor Test"}),
+        ]
+
+        for act, dx, dy, extra in button_actions:
+            payload = json.dumps({"action": act, "dx": dx, "dy": dy, **extra}).encode("utf-8")
+            req = urllib.request.Request(
+                f"{self.base_url}/api/action",
+                data=payload,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=3.0) as res:
+                self.assertEqual(res.status, 200)
+                data = json.loads(res.read().decode("utf-8"))
+                self.assertEqual(data.get("status"), "ok")
+
+        self.assertEqual(len(received), len(button_actions))
+        # Verify jump_to received coordinates
+        jump = [r for r in received if r[0] == "jump_to"][0]
+        self.assertEqual(jump[1], 1280.0)
+        self.assertEqual(jump[2], 720.0)
+        # Verify type_text received payload
+        type_act = [r for r in received if r[0] == "type_text"][0]
+        self.assertEqual(type_act[3].get("text"), "AirCursor Test")
 
     def test_post_motion_endpoint(self):
         """POST /api/motion dispatches relative motion and gyro readings."""

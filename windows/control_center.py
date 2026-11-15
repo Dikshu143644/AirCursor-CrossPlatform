@@ -918,9 +918,9 @@ class ControlCenterGUI:
         """Toggles camera vision tracking on / off."""
         is_active = self.controller.toggle_camera()
         if is_active:
-            self.camera_btn.config(bg="#166534", fg="#86efac", text="📷 Camera: ON")
+            self.camera_btn.config(bg="#166534", fg="#86efac", text="📷 Camera: ON (Hand/Face)")
             self.status_msg_lbl.config(
-                text="✓ Vision Camera tracking active. Face movements control cursor.",
+                text="✓ Camera tracking active. Move hand or face to control cursor.",
                 fg=self.c_green,
             )
         else:

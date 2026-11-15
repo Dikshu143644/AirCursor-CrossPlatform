@@ -143,7 +143,15 @@ class InputArbiter:
         if self._manual_lock is not None:
             return self._manual_lock == TrackingSource.VISION
 
-        return self._active_source == TrackingSource.VISION
+        if self._active_source == TrackingSource.VISION:
+            return True
+
+        # If Bluetooth is silent/absent and camera is enabled, automatically transition to VISION!
+        if self._active_source == TrackingSource.BLUETOOTH and self.is_bluetooth_stale and self.camera_enabled:
+            self._transition_to(TrackingSource.VISION)
+            return True
+
+        return False
 
     def check_health(self, now: Optional[float] = None) -> TrackingSource:
         """Periodic watchdog check for source timeouts and fallback transitions.
@@ -156,9 +164,12 @@ class InputArbiter:
         if self._manual_lock is not None:
             return self._active_source
 
-        # Check if Bluetooth has stalled > 3.0 seconds
+        # Check if Bluetooth has stalled (silent > timeout, or never connected)
         if self._active_source == TrackingSource.BLUETOOTH:
-            if self._last_bluetooth_time > 0 and (current_time - self._last_bluetooth_time > self.bluetooth_timeout):
+            bluetooth_is_stale = (self._last_bluetooth_time <= 0) or (
+                current_time - self._last_bluetooth_time > self.bluetooth_timeout
+            )
+            if bluetooth_is_stale:
                 # Bluetooth is silent! Check if camera fallback is viable
                 can_fallback = self.camera_available and self.camera_enabled
 

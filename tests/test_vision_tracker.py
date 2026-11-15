@@ -335,6 +335,33 @@ class TestHandGestureClassification(unittest.TestCase):
         res3 = tracker.process_frame(img, timestamp=50.45)
         self.assertEqual(res3.hand_gesture, HandGesture.CLOSED_FIST)
 
+    def test_hand_movement_maps_to_cursor_motion(self):
+        """Moving hand across camera frame must produce motion samples for cursor displacement."""
+        settings = VisionTrackerSettings(mirror=False, enable_hand_tracking=True)
+        tracker = VisionTracker(settings=settings)
+        diff = MotionDifferentiator()
+
+        # Frame 1: Hand centered at x=140
+        img1 = np.zeros((300, 300, 3), dtype=np.uint8)
+        cv2.rectangle(img1, (100, 160), (180, 240), self.skin_bgr, -1)
+        res1 = tracker.process_frame(img1, timestamp=60.0)
+        self.assertTrue(res1.hand_detected)
+        self.assertEqual(res1.tracking_mode_used, "hand")
+        self.assertIsNotNone(res1.motion_sample)
+        r1 = diff.push(res1.motion_sample)
+        self.assertIsNone(r1)  # Initial reference
+
+        # Frame 2: Hand moved to x=180
+        img2 = np.zeros((300, 300, 3), dtype=np.uint8)
+        cv2.rectangle(img2, (140, 160), (220, 240), self.skin_bgr, -1)
+        res2 = tracker.process_frame(img2, timestamp=60.033)
+        self.assertTrue(res2.hand_detected)
+        self.assertEqual(res2.tracking_mode_used, "hand")
+        self.assertIsNotNone(res2.motion_sample)
+        r2 = diff.push(res2.motion_sample)
+        self.assertIsNotNone(r2)
+        self.assertNotEqual(r2.yaw, 0.0)
+
 
 class TestInputArbiterAndFallback(unittest.TestCase):
     """Tests arbitration logic and automatic fallback transitions between Bluetooth and Vision."""
@@ -446,6 +473,18 @@ class TestInputArbiterAndFallback(unittest.TestCase):
         # Toggle camera switches back to BLUETOOTH
         new_source = arbiter.toggle_camera()
         self.assertEqual(new_source, TrackingSource.BLUETOOTH)
+
+    def test_arbiter_auto_fallback_when_bluetooth_never_connected(self):
+        """When Bluetooth was never connected (last_bluetooth_time == 0), camera enabled must auto-fallback to Vision."""
+        arbiter = InputArbiter(
+            initial_source=TrackingSource.BLUETOOTH,
+            camera_available=True,
+            camera_enabled=True,
+        )
+        sample = MotionSample(timestamp=100.0, yaw=0.05, pitch=0.0, roll=0.0)
+        consumed = arbiter.notify_vision_sample(sample, timestamp=100.0)
+        self.assertTrue(consumed)
+        self.assertEqual(arbiter.active_source, TrackingSource.VISION)
 
 
 class TestAppControllerVisionIntegration(unittest.TestCase):

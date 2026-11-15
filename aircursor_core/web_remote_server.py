@@ -107,7 +107,20 @@ class WebRemoteRequestHandler(BaseHTTPRequestHandler):
             self._serve_static_file(rel)
             return
 
-        # 7. Root Web Remote: GET / or GET /index.html or /remote.html
+        # 7. Button Remote / Screen Controller: GET /button-remote, /tv, /deck, /screen-remote
+        if path in (
+            "/button-remote",
+            "/button-remote.html",
+            "/button_remote",
+            "/button_remote.html",
+            "/tv",
+            "/deck",
+            "/screen-remote",
+        ):
+            self._serve_static_file("button_remote.html", "text/html; charset=utf-8")
+            return
+
+        # 8. Root Web Remote: GET / or GET /index.html or /remote.html
         if path in ("/", "/index.html", "/remote", "/remote.html"):
             for candidate in ("remote.html", "index.html"):
                 if self._can_serve(candidate):
@@ -550,7 +563,12 @@ class WebRemoteServer:
             try:
                 # Prefer controller's dedicated remote handler if present
                 if hasattr(self.controller, "handle_remote_action"):
-                    return self.controller.handle_remote_action(act, dx=dx, dy=dy)
+                    try:
+                        return self.controller.handle_remote_action(
+                            act, dx=dx, dy=dy, extra=extra_data
+                        )
+                    except TypeError:
+                        return self.controller.handle_remote_action(act, dx=dx, dy=dy)
 
                 # Fallback to direct controller methods
                 if act in ("click", "left_click"):
@@ -704,12 +722,21 @@ class WebRemoteServer:
                 elif getattr(self.controller, "motion_streaming", False):
                     source = "airpods"
 
+        screen = {"x": 0, "y": 0, "width": 1920, "height": 1080}
+        if self.controller and hasattr(self.controller, "synth") and hasattr(self.controller.synth, "get_screen_bounds"):
+            try:
+                vx, vy, vw, vh = self.controller.synth.get_screen_bounds()
+                screen = {"x": int(vx), "y": int(vy), "width": int(vw), "height": int(vh)}
+            except Exception:
+                pass
+
         return {
             "cursor": cursor,
             "source": source,
             "connection_count": self.connection_count,
             "tracking_enabled": tracking_enabled,
             "mode": mode,
+            "screen": screen,
             "timestamp": now,
         }
 

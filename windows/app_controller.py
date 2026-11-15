@@ -157,6 +157,7 @@ class AppController:
 
         # Pipeline components
         self.differentiator = MotionDifferentiator()
+        self._vision_differentiator = MotionDifferentiator()
         self.smoother = PointerSmoother()
         self.gestures = GestureDetector(settings=self.settings.gestures)
         self.dwell = DwellDetector(settings=self.settings.dwell)
@@ -208,6 +209,8 @@ class AppController:
             target_fps=float(self.settings.vision.max_fps),
             enable_head_tracking=self.settings.vision.face_tracking,
             enable_hand_gestures=self.settings.vision.hand_gestures,
+            enable_hand_tracking=getattr(self.settings.vision, "hand_tracking", True),
+            hand_sensitivity=getattr(self.settings.vision, "hand_sensitivity", 2.5),
         )
         self.vision_tracker = VisionTracker(
             settings=vision_cfg,
@@ -255,7 +258,10 @@ class AppController:
 
         # Start Vision tracker if camera is enabled
         if self.enable_camera and self.vision_tracker:
-            self.vision_tracker.start()
+            if self.vision_tracker.start():
+                self.arbiter.set_camera_status(available=True, enabled=True)
+                if self.arbiter.active_source == TrackingSource.BLUETOOTH and self.arbiter.is_bluetooth_stale:
+                    self.arbiter.set_manual_source(TrackingSource.VISION)
 
         # Start High-Frequency 120Hz Tracking Frame Thread
         self._frame_thread = threading.Thread(
@@ -422,8 +428,8 @@ class AppController:
         if not should_consume:
             return
 
-        # Differentiate attitude into angular velocities (deg/s)
-        rates = self.differentiator.push(sample)
+        # Differentiate attitude into angular velocities (deg/s) using vision differentiator
+        rates = self._vision_differentiator.push(sample)
         if rates is None:
             return
 
@@ -502,7 +508,8 @@ class AppController:
             self.enable_camera = True
             self.arbiter.set_camera_status(available=True, enabled=True)
             self.arbiter.set_manual_source(TrackingSource.VISION)
-            self.overlay.show_toast("Camera Vision Tracking Started", "📷")
+            self._vision_differentiator.reset()
+            self.overlay.show_toast("Camera Active: Move Hand or Head", "📷")
             return True
         else:
             self.overlay.show_toast("Camera Unavailable", "⚠")
@@ -518,6 +525,7 @@ class AppController:
             enabled=False,
         )
         self.arbiter.set_manual_source(None)
+        self._vision_differentiator.reset()
         self.overlay.show_toast("Camera Vision Tracking Stopped", "📷")
 
     def _on_tracking_source_changed(
@@ -528,8 +536,8 @@ class AppController:
             if self.vision_tracker and not self.vision_tracker.is_running:
                 self.vision_tracker.start()
             self.smoother.reset()
-            self.differentiator.reset()
-            self.overlay.show_toast("Switched to Camera Vision Tracking", "📷")
+            self._vision_differentiator.reset()
+            self.overlay.show_toast("Camera Active: Move Hand or Face", "📷")
         elif new_source == TrackingSource.BLUETOOTH:
             self.smoother.reset()
             self.differentiator.reset()
@@ -821,7 +829,9 @@ class AppController:
             self.overlay.pulse(x, y)
         self.overlay.show_toast("Dropped", "🖐")
 
-    def handle_remote_action(self, action: str, dx: float = 0.0, dy: float = 0.0) -> bool:
+    def handle_remote_action(
+        self, action: str, dx: float = 0.0, dy: float = 0.0, extra: Optional[dict] = None
+    ) -> bool:
         """Thread-safe handler for user actions from mobile web remote."""
         act = action.strip().lower()
         if act in ("click", "left_click"):
@@ -855,6 +865,105 @@ class AppController:
         elif act == "scroll":
             self.synth.scroll(vertical=int(dy), horizontal=int(dx))
             return True
+        elif act in ("jump_to", "move_to"):
+            # Absolute coordinate jump from virtual screen mini-map
+            self.synth.move_to(dx, dy)
+            self._cursor = Vec2(float(dx), float(dy))
+            return True
+        # D-Pad and Navigation keys
+        elif act in ("dpad_up", "key_up", "up"):
+            self.synth.press_key("up")
+            return True
+        elif act in ("dpad_down", "key_down", "down"):
+            self.synth.press_key("down")
+            return True
+        elif act in ("dpad_left", "key_left", "left"):
+            self.synth.press_key("left")
+            return True
+        elif act in ("dpad_right", "key_right", "right"):
+            self.synth.press_key("right")
+            return True
+        elif act in ("dpad_ok", "dpad_center", "key_enter", "enter", "select", "ok"):
+            self.synth.press_key("enter")
+            return True
+        elif act in ("key_esc", "esc", "escape"):
+            self.synth.press_key("escape")
+            return True
+        elif act in ("key_space", "space"):
+            self.synth.press_key("space")
+            return True
+        elif act in ("key_tab", "tab"):
+            self.synth.press_key("tab")
+            return True
+        elif act in ("key_backspace", "backspace"):
+            self.synth.press_key("backspace")
+            return True
+        elif act in ("browser_back", "back"):
+            self.synth.browser_back()
+            return True
+        elif act in ("browser_forward", "forward"):
+            self.synth.browser_forward()
+            return True
+        elif act in ("page_up", "pgup"):
+            self.synth.press_key("page_up")
+            return True
+        elif act in ("page_down", "pgdn"):
+            self.synth.press_key("page_down")
+            return True
+        elif act in ("home", "key_home"):
+            self.synth.press_key("home")
+            return True
+        elif act in ("end", "key_end"):
+            self.synth.press_key("end")
+            return True
+        # Media Controls
+        elif act in ("volume_up", "vol_up"):
+            self.synth.volume_up()
+            return True
+        elif act in ("volume_down", "vol_down"):
+            self.synth.volume_down()
+            return True
+        elif act in ("volume_mute", "mute"):
+            self.synth.volume_mute()
+            return True
+        elif act in ("media_play_pause", "play_pause", "play"):
+            self.synth.media_play_pause()
+            return True
+        elif act in ("media_next", "next_track"):
+            self.synth.media_next()
+            return True
+        elif act in ("media_prev", "prev_track"):
+            self.synth.media_prev()
+            return True
+        # Windows & TV Display Controls
+        elif act in ("fullscreen", "f11"):
+            self.synth.fullscreen()
+            return True
+        elif act in ("show_desktop", "desktop"):
+            self.synth.show_desktop()
+            return True
+        elif act in ("task_view", "mission_control"):
+            self.synth.mission_control()
+            return True
+        elif act in ("app_switch", "app_windows"):
+            self.synth.app_windows()
+            return True
+        elif act in ("previous_space", "desktop_left"):
+            self.synth.previous_space()
+            return True
+        elif act in ("next_space", "desktop_right"):
+            self.synth.next_space()
+            return True
+        elif act in ("screenshot", "snip"):
+            self.synth.screenshot()
+            return True
+        elif act == "type_text":
+            text = ""
+            if extra and "text" in extra:
+                text = str(extra["text"])
+            if text:
+                self.synth.type_text(text)
+            return True
         elif act in ("toggle_tracking", "pause", "resume"):
             if act == "pause":
                 self.set_tracking(False)
@@ -870,6 +979,14 @@ class AppController:
                 self.set_mode(TrackingMode.POINTER)
             else:
                 self.toggle_mode()
+            return True
+        elif act in ("camera_toggle", "toggle_camera"):
+            if hasattr(self, "toggle_camera"):
+                self.toggle_camera()
+            return True
+        # Numeric keys (0-9)
+        elif len(act) == 1 and act.isdigit():
+            self.synth.press_key(act)
             return True
         return False
 

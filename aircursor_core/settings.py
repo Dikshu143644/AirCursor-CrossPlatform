@@ -287,6 +287,8 @@ class VisionSettings:
     auto_fallback: bool = True
     face_tracking: bool = True
     hand_gestures: bool = True
+    hand_tracking: bool = True
+    hand_sensitivity: float = 2.5
     max_fps: int = 30
 
     def to_dict(self) -> Dict[str, Any]:
@@ -296,6 +298,8 @@ class VisionSettings:
             "autoFallback": self.auto_fallback,
             "faceTracking": self.face_tracking,
             "handGestures": self.hand_gestures,
+            "handTracking": self.hand_tracking,
+            "handSensitivity": self.hand_sensitivity,
             "maxFps": self.max_fps,
         }
 
@@ -310,6 +314,8 @@ class VisionSettings:
             auto_fallback=_get_lenient(data, ["autoFallback", "auto_fallback"], default.auto_fallback, bool),
             face_tracking=_get_lenient(data, ["faceTracking", "face_tracking"], default.face_tracking, bool),
             hand_gestures=_get_lenient(data, ["handGestures", "hand_gestures"], default.hand_gestures, bool),
+            hand_tracking=_get_lenient(data, ["handTracking", "hand_tracking"], default.hand_tracking, bool),
+            hand_sensitivity=_get_lenient(data, ["handSensitivity", "hand_sensitivity"], default.hand_sensitivity, float),
             max_fps=_get_lenient(data, ["maxFps", "max_fps"], default.max_fps, int),
         )
 
