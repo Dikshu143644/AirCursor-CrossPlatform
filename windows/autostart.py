@@ -1,9 +1,8 @@
 """AirCursor Windows Autostart Manager.
 
-Manages registry key HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\AirCursor
-to run silently with pythonw.exe on Windows startup.
+Stores a pythonw.exe launch command in HKCU Run. The Run key is created on
+first use so clean Windows profiles and CI runners are supported.
 """
-
 from __future__ import annotations
 
 import argparse
@@ -17,7 +16,7 @@ APP_VALUE_NAME = "AirCursor"
 
 
 def get_pythonw_path() -> Path:
-    """Finds pythonw.exe for windowless background execution."""
+    """Find pythonw.exe for windowless background execution."""
     current_exe = Path(sys.executable)
     if current_exe.name.lower() == "pythonw.exe":
         return current_exe
@@ -31,75 +30,77 @@ def get_pythonw_path() -> Path:
 
 
 def get_main_script_path() -> Path:
-    """Returns absolute path to windows/main.py."""
+    """Return the absolute path to windows/main.py."""
     return Path(__file__).resolve().parent / "main.py"
 
 
 def is_autostart_enabled() -> bool:
-    """Checks if AirCursor is registered to run on Windows startup."""
+    """Check whether AirCursor is registered to run on Windows startup."""
     try:
-        with winreg.OpenKey(
-            winreg.HKEY_CURRENT_USER, RUN_KEY_PATH, 0, winreg.KEY_READ
-        ) as key:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY_PATH, 0, winreg.KEY_READ) as key:
             winreg.QueryValueEx(key, APP_VALUE_NAME)
             return True
-    except FileNotFoundError:
-        return False
-    except OSError:
+    except (FileNotFoundError, OSError):
         return False
 
 
 def get_autostart_command() -> str | None:
-    """Returns the current autostart command string, or None if not set."""
+    """Return the registered command, or None when autostart is disabled."""
     try:
-        with winreg.OpenKey(
-            winreg.HKEY_CURRENT_USER, RUN_KEY_PATH, 0, winreg.KEY_READ
-        ) as key:
-            val, _ = winreg.QueryValueEx(key, APP_VALUE_NAME)
-            return str(val)
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY_PATH, 0, winreg.KEY_READ) as key:
+            value, _ = winreg.QueryValueEx(key, APP_VALUE_NAME)
+            return str(value)
     except (FileNotFoundError, OSError):
         return None
 
 
 def enable_autostart(extra_args: str = "--tray") -> bool:
-    """Registers AirCursor in HKCU Run to launch silently with pythonw.exe."""
+    """Create the HKCU Run key if needed and register AirCursor."""
     pythonw = get_pythonw_path()
     main_py = get_main_script_path()
-    cmd = f'"{pythonw}" "{main_py}" {extra_args}'.strip()
+    command = f'"{pythonw}" "{main_py}" {extra_args}'.strip()
 
     try:
-        with winreg.OpenKey(
-            winreg.HKEY_CURRENT_USER, RUN_KEY_PATH, 0, winreg.KEY_SET_VALUE
-        ) as key:
-            winreg.SetValueEx(key, APP_VALUE_NAME, 0, winreg.REG_SZ, cmd)
-            return True
-    except OSError as e:
-        print(f"[Error] Failed to enable autostart: {e}", file=sys.stderr)
+        try:
+            key = winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER, RUN_KEY_PATH, 0, winreg.KEY_SET_VALUE
+            )
+        except FileNotFoundError:
+            key = winreg.CreateKeyEx(
+                winreg.HKEY_CURRENT_USER, RUN_KEY_PATH, 0, winreg.KEY_SET_VALUE
+            )
+        with key:
+            winreg.SetValueEx(key, APP_VALUE_NAME, 0, winreg.REG_SZ, command)
+        return True
+    except OSError as exc:
+        print(f"[Error] Failed to enable autostart: {exc}", file=sys.stderr)
         return False
 
 
 def disable_autostart() -> bool:
-    """Removes AirCursor from HKCU Run key."""
+    """Remove AirCursor from HKCU Run; a missing value is already disabled."""
     try:
-        with winreg.OpenKey(
-            winreg.HKEY_CURRENT_USER, RUN_KEY_PATH, 0, winreg.KEY_SET_VALUE
-        ) as key:
+        try:
+            key = winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER, RUN_KEY_PATH, 0, winreg.KEY_SET_VALUE
+            )
+        except FileNotFoundError:
+            return True
+        with key:
             try:
                 winreg.DeleteValue(key, APP_VALUE_NAME)
-                return True
             except FileNotFoundError:
-                return True  # Already disabled
-    except OSError as e:
-        print(f"[Error] Failed to disable autostart: {e}", file=sys.stderr)
+                return True
+        return True
+    except OSError as exc:
+        print(f"[Error] Failed to disable autostart: {exc}", file=sys.stderr)
         return False
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="AirCursor Autostart Manager")
     parser.add_argument("--check", action="store_true", help="Check autostart status")
-    parser.add_argument(
-        "--enable", action="store_true", help="Enable autostart on Windows boot"
-    )
+    parser.add_argument("--enable", action="store_true", help="Enable autostart on Windows boot")
     parser.add_argument("--disable", action="store_true", help="Disable autostart")
     args = parser.parse_args()
 
