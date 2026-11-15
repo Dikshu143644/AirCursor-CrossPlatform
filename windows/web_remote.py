@@ -9,12 +9,16 @@ from __future__ import annotations
 
 import http.server
 import hmac
+import ipaddress
 import json
 import os
 import secrets
 import socketserver
 import threading
+import urllib.parse
 from typing import TYPE_CHECKING, Any, Dict, Optional
+
+from aircursor_core.pairing_qr import generate_qr_matrix, get_local_ip, matrix_to_html
 
 if TYPE_CHECKING:
     from app_controller import AppController
@@ -61,6 +65,22 @@ class WebRemoteServer:
                 path = self.path.split("?")[0]
                 if path in ("/api/status", "/status"):
                     self._send_json(self._get_status())
+                elif path == "/pair":
+                    try:
+                        is_local = ipaddress.ip_address(self.client_address[0]).is_loopback
+                    except (ValueError, IndexError):
+                        is_local = False
+                    if not is_local:
+                        self._send_json({"error": "pairing QR is available from the host computer only"}, code=403)
+                        return
+                    pair_url = (
+                        f"http://{get_local_ip()}:{outer.port}/#token="
+                        + urllib.parse.quote(outer.access_token, safe="")
+                    )
+                    html = matrix_to_html(
+                        generate_qr_matrix(pair_url), pair_url, title="AirCursor Secure Pairing"
+                    )
+                    self._send_html(html)
                 elif path in ("/", "/index.html"):
                     self._send_html(self._render_remote_html())
                 else:
@@ -187,8 +207,13 @@ class WebRemoteServer:
         </div>
     </div>
     <script>
-        let accessToken = sessionStorage.getItem('aircursor-access-token') || '';
+        const fragmentToken = new URLSearchParams(location.hash.replace(/^#/, '')).get('token');
+        let accessToken = fragmentToken || sessionStorage.getItem('aircursor-access-token') || '';
         const pairingInput = document.getElementById('pairingToken');
+        if (accessToken && location.hash) {
+            sessionStorage.setItem('aircursor-access-token', accessToken);
+            history.replaceState(null, '', location.pathname + location.search);
+        }
         pairingInput.value = accessToken;
         document.getElementById('savePairing').addEventListener('click', () => {
             accessToken = pairingInput.value.trim();
@@ -254,7 +279,7 @@ class WebRemoteServer:
             self._thread.start()
             self._running = True
             print(f"[AirCursor Web Remote] Access token (keep private): {self.access_token}")
-            print(f"[AirCursor Web Remote] On the same LAN open http://<HOST-IP>:{self.port} and enter this token.")
+            print(f"[AirCursor Web Remote] On this computer open http://127.0.0.1:{self.port}/pair for a secure QR code.")
             return True
         except Exception as e:
             print(f"[AirCursor Web Remote] Failed to bind port {self.port}: {e}")
