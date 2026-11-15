@@ -91,9 +91,9 @@ class WebRemoteRequestHandler(BaseHTTPRequestHandler):
             self._send_json(200, qr_data)
             return
 
-        # 4. Web App Manifest: GET /manifest.json
-        if path == "/manifest.json":
-            self._serve_static_file("manifest.json", "application/manifest+json; charset=utf-8")
+        # 4. Web App Manifest
+        if path in ("/manifest.json", "/manifest.webmanifest"):
+            self._serve_static_file(path.lstrip("/"), "application/manifest+json; charset=utf-8")
             return
 
         # 5. Service Worker: GET /sw.js
@@ -101,27 +101,18 @@ class WebRemoteRequestHandler(BaseHTTPRequestHandler):
             self._serve_static_file("sw.js", "application/javascript; charset=utf-8")
             return
 
-        # 6. Static files: GET /static/<filename>
-        if path.startswith("/static/"):
-            filename = path[len("/static/") :]
-            # Basic path traversal guard
-            safe_name = os.path.basename(filename)
-            content_type = "text/plain"
-            if safe_name.endswith(".html"):
-                content_type = "text/html; charset=utf-8"
-            elif safe_name.endswith(".css"):
-                content_type = "text/css; charset=utf-8"
-            elif safe_name.endswith(".js"):
-                content_type = "application/javascript; charset=utf-8"
-            elif safe_name.endswith(".json"):
-                content_type = "application/json; charset=utf-8"
-            elif safe_name.endswith(".svg"):
-                content_type = "image/svg+xml"
-            self._serve_static_file(safe_name, content_type)
+        # 6. Static / Web Assets: css, js, icons, static, cad
+        if path.startswith(("/css/", "/js/", "/icons/", "/static/", "/cad/")):
+            rel = path.lstrip("/")
+            self._serve_static_file(rel)
             return
 
-        # 7. Root Web Remote: GET / or GET /index.html
+        # 7. Root Web Remote: GET / or GET /index.html or /remote.html
         if path in ("/", "/index.html", "/remote", "/remote.html"):
+            for candidate in ("remote.html", "index.html"):
+                if self._can_serve(candidate):
+                    self._serve_static_file(candidate, "text/html; charset=utf-8")
+                    return
             self._serve_static_file("remote.html", "text/html; charset=utf-8")
             return
 
@@ -182,13 +173,57 @@ class WebRemoteRequestHandler(BaseHTTPRequestHandler):
         self._send_json(404, {"error": "POST endpoint not found", "path": path})
 
     # -------------------------------------------------------------------------
-    # Static File Serving Helper
+    # Static File Serving Helpers
     # -------------------------------------------------------------------------
-    def _serve_static_file(self, filename: str, content_type: str) -> None:
-        file_path = self.server_instance.static_dir / filename
-        if not file_path.exists():
+    def _resolve_file_path(self, rel_path: str) -> Optional[Path]:
+        norm = Path(rel_path.lstrip("/\\"))
+        if ".." in norm.parts:
+            return None
+
+        # Check in static_dir
+        candidate = self.server_instance.static_dir / norm
+        if candidate.exists() and candidate.is_file():
+            return candidate
+
+        # Check in web dir
+        repo_web = Path(__file__).resolve().parent.parent / "web" / norm
+        if repo_web.exists() and repo_web.is_file():
+            return repo_web
+
+        # Check in cad or repo dir
+        repo_cad = Path(__file__).resolve().parent.parent / norm
+        if repo_cad.exists() and repo_cad.is_file():
+            return repo_cad
+
+        return None
+
+    def _can_serve(self, rel_path: str) -> bool:
+        return self._resolve_file_path(rel_path) is not None
+
+    def _serve_static_file(self, filename: str, content_type: Optional[str] = None) -> None:
+        file_path = self._resolve_file_path(filename)
+        if not file_path:
             self._send_json(404, {"error": f"File '{filename}' not found"})
             return
+
+        if content_type is None:
+            suffix = file_path.suffix.lower()
+            mime_map = {
+                ".html": "text/html; charset=utf-8",
+                ".css": "text/css; charset=utf-8",
+                ".js": "application/javascript; charset=utf-8",
+                ".json": "application/json; charset=utf-8",
+                ".webmanifest": "application/manifest+json; charset=utf-8",
+                ".svg": "image/svg+xml",
+                ".png": "image/png",
+                ".jpg": "image/jpeg",
+                ".jpeg": "image/jpeg",
+                ".glb": "model/gltf-binary",
+                ".obj": "text/plain",
+                ".stl": "application/sla",
+                ".blend": "application/octet-stream",
+            }
+            content_type = mime_map.get(suffix, "application/octet-stream")
 
         try:
             content = file_path.read_bytes()

@@ -719,6 +719,240 @@
       opacity: 1;
       transform: translateX(-50%) translateY(0);
     }
+
+    /* -------------------------------------------------------------
+       TAB 5: PHYSICAL REMOTES HARDWARE EMULATOR
+       ------------------------------------------------------------- */
+    .hw-selector-bar {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      scrollbar-width: none;
+    }
+    .hw-selector-bar::-webkit-scrollbar { display: none; }
+    .hw-pill {
+      flex-shrink: 0;
+      padding: 6px 12px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .hw-pill.active {
+      background: rgba(6, 182, 212, 0.18);
+      border-color: var(--cyan);
+      color: #fff;
+      box-shadow: 0 0 12px var(--cyan-glow);
+    }
+    .hw-meta-card {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .hw-meta-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .hw-meta-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .hw-meta-badges {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .hw-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 10px;
+      text-transform: uppercase;
+    }
+    .hw-badge-mass { background: #1e3a5f; color: #93c5fd; }
+    .hw-badge-batt { background: #14532d; color: #86efac; }
+    .hw-badge-rf { background: #3b0764; color: #d8b4fe; }
+
+    .hw-interactive-stage {
+      flex: 1;
+      position: relative;
+      background: rgba(15, 23, 42, 0.55);
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      min-height: 240px;
+      box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.6);
+    }
+
+    /* Concept 01: AirRing Pro */
+    .ring-outer-bezel {
+      width: 190px;
+      height: 190px;
+      border-radius: 50%;
+      border: 4px dashed rgba(6, 182, 212, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      cursor: grab;
+      box-shadow: 0 0 25px rgba(6, 182, 212, 0.2);
+    }
+    .ring-trackball-core {
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #38bdf8, #0f172a 75%);
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: #fff;
+      cursor: crosshair;
+    }
+
+    /* Concept 02: AirWand Elite */
+    .wand-trigger-btn {
+      width: 140px;
+      height: 48px;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #3b82f6, #1d4ed8);
+      color: #fff;
+      font-weight: 700;
+      font-size: 13px;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
+      margin-bottom: 12px;
+    }
+    .wand-dpad {
+      display: grid;
+      grid-template-columns: 46px 46px 46px;
+      grid-template-rows: 46px 46px 46px;
+      gap: 4px;
+    }
+    .wand-dpad-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      color: #fff;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    /* Concept 03: AirPebble Touch */
+    .pebble-surface {
+      width: 180px;
+      height: 140px;
+      border-radius: 50px 50px 35px 35px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(10px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: crosshair;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+      position: relative;
+    }
+
+    /* Concept 04: AirClip Mini */
+    .clip-mute-toggle {
+      width: 120px;
+      height: 44px;
+      border-radius: 22px;
+      background: #dc2626;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      box-shadow: 0 0 15px rgba(220, 38, 38, 0.5);
+    }
+    .clip-mute-toggle.unmuted {
+      background: #16a34a;
+      box-shadow: 0 0 15px rgba(22, 163, 74, 0.5);
+    }
+
+    /* Concept 05: AirDeck Controller */
+    .deck-oled {
+      width: 150px;
+      height: 40px;
+      background: #000;
+      border: 1px solid #38bdf8;
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: monospace;
+      font-size: 11px;
+      color: #38bdf8;
+      margin-bottom: 10px;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+    }
+    .deck-bumpers {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .deck-bumper-btn {
+      width: 76px;
+      height: 36px;
+      border-radius: 8px;
+      background: #334155;
+      border: 1px solid #64748b;
+      color: #fff;
+      font-weight: 700;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .hw-footer-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .hw-action-link {
+      flex: 1;
+      padding: 9px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      color: var(--cyan);
+      font-size: 12px;
+      font-weight: 600;
+      text-align: center;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+    }
   </style>
 </head>
 <body>
@@ -755,6 +989,9 @@
     </button>
     <button class="tab-btn" data-tab="tabSettings">
       <span>⚙️</span> Tuning
+    </button>
+    <button class="tab-btn" data-tab="tabHardware">
+      <span>🎮</span> 5 Remotes
     </button>
   </nav>
 
@@ -953,6 +1190,48 @@
         <button class="btn-install" id="btnInstallApp" style="display:none">
           <span>📲</span> Add to Home Screen (Install App)
         </button>
+      </div>
+    </section>
+
+    <!-- TAB 5: PHYSICAL REMOTES HARDWARE EMULATOR -->
+    <section class="tab-pane" id="tabHardware">
+      <!-- 5 Product Selector Pills -->
+      <div class="hw-selector-bar">
+        <div class="hw-pill active" data-hw="1">💍 AirRing Pro</div>
+        <div class="hw-pill" data-hw="2">🪄 AirWand Elite</div>
+        <div class="hw-pill" data-hw="3">🪨 AirPebble Touch</div>
+        <div class="hw-pill" data-hw="4">📎 AirClip Mini</div>
+        <div class="hw-pill" data-hw="5">🎮 AirDeck Controller</div>
+      </div>
+
+      <!-- Specs Card -->
+      <div class="hw-meta-card">
+        <div class="hw-meta-header">
+          <span class="hw-meta-title" id="hwMetaTitle">AirRing Pro</span>
+          <div class="hw-meta-badges">
+            <span class="hw-badge hw-badge-mass" id="hwBadgeMass">8.8g</span>
+            <span class="hw-badge hw-badge-batt" id="hwBadgeBatt">18.5h</span>
+            <span class="hw-badge hw-badge-rf">BLE 5.3</span>
+          </div>
+        </div>
+        <div style="font-size:11px; color:var(--text-muted);" id="hwMetaSubtitle">
+          Index-Finger Wearable Smart Ring with Micro Optical Trackball &amp; 360° Scroll Bezel
+        </div>
+      </div>
+
+      <!-- Interactive Simulation Stage -->
+      <div class="hw-interactive-stage" id="hwStage">
+        <!-- Rendered dynamically by JavaScript -->
+      </div>
+
+      <!-- Footer Quick Links -->
+      <div class="hw-footer-actions">
+        <a href="/cad/remote_showcase.html" target="_blank" class="hw-action-link">
+          🌐 3D WebGL Showcase
+        </a>
+        <a href="/status" target="_blank" class="hw-action-link">
+          📊 Hardware Telemetry
+        </a>
       </div>
     </section>
   </main>
@@ -1538,6 +1817,330 @@
         deferredPrompt = null;
       }
     });
+
+    // =========================================================================
+    // TAB 5: PHYSICAL REMOTES HARDWARE EMULATOR
+    // =========================================================================
+    const hwStage = document.getElementById('hwStage');
+    const hwMetaTitle = document.getElementById('hwMetaTitle');
+    const hwMetaSubtitle = document.getElementById('hwMetaSubtitle');
+    const hwBadgeMass = document.getElementById('hwBadgeMass');
+    const hwBadgeBatt = document.getElementById('hwBadgeBatt');
+
+    const hwProfiles = {
+      1: {
+        name: "AirRing Pro",
+        form: "Index-Finger Smart Ring",
+        mass: "8.8g",
+        batt: "18.5h",
+        desc: "Index-Finger Wearable Smart Ring with Micro Optical Trackball & 360° Scroll Bezel",
+        render: (c) => {
+          c.innerHTML = `
+            <div style="display:flex; flex-direction:column; align-items:center; gap:12px;">
+              <div class="ring-outer-bezel" id="ringBezel">
+                <div class="ring-trackball-core" id="ringTrackball">TRACKBALL</div>
+              </div>
+              <div style="font-size:11px; color:var(--text-dim); text-align:center;">
+                Drag core sphere to steer cursor • Swipe outer ring to scroll
+              </div>
+            </div>
+          `;
+          setupRingControls();
+        }
+      },
+      2: {
+        name: "AirWand Elite",
+        form: "Ergonomic Air Baton",
+        mass: "52.0g",
+        batt: "42.0h",
+        desc: "Precision Air Baton with Dual-Stage Index Trigger, 5-Way Thumb Rocker, and Lateral Squeeze Pads",
+        render: (c) => {
+          c.innerHTML = `
+            <div style="display:flex; flex-direction:column; align-items:center;">
+              <button class="wand-trigger-btn" id="wandTrigger">🎯 Trigger Click</button>
+              <div class="wand-dpad">
+                <div></div>
+                <button class="wand-dpad-btn" data-act="arrow_up">▲</button>
+                <div></div>
+                <button class="wand-dpad-btn" data-act="arrow_left">◀</button>
+                <button class="wand-dpad-btn" data-act="click" style="background:rgba(6,182,212,0.3)">●</button>
+                <button class="wand-dpad-btn" data-act="arrow_right">▶</button>
+                <div></div>
+                <button class="wand-dpad-btn" data-act="arrow_down">▼</button>
+                <div></div>
+              </div>
+              <div style="display:flex; gap:10px; margin-top:14px;">
+                <button class="deck-bumper-btn" id="wandSqueezeL">Squeeze L</button>
+                <button class="deck-bumper-btn" id="wandSqueezeR">Squeeze R</button>
+              </div>
+            </div>
+          `;
+          setupWandControls();
+        }
+      },
+      3: {
+        name: "AirPebble Touch",
+        form: "River-Stone Palm Puck",
+        mass: "64.0g",
+        batt: "60.0h",
+        desc: "Frosted Glass Multi-Touch Dome with Knurled Peripheral Rotary Ring Dial",
+        render: (c) => {
+          c.innerHTML = `
+            <div style="display:flex; flex-direction:column; align-items:center; gap:10px;">
+              <div class="pebble-surface" id="pebbleDome">
+                <div style="font-size:12px; font-weight:700; color:rgba(255,255,255,0.7)">FROSTED GLASS DOME</div>
+                <div style="font-size:10px; color:var(--text-dim); margin-top:4px;">1-Finger Move • 2-Finger Scroll</div>
+              </div>
+              <div style="display:flex; gap:8px;">
+                <button class="deck-bumper-btn" id="pebbleDialLeft">↺ Dial Left</button>
+                <button class="deck-bumper-btn" id="pebbleDialClick">Dial Click</button>
+                <button class="deck-bumper-btn" id="pebbleDialRight">↻ Dial Right</button>
+              </div>
+            </div>
+          `;
+          setupPebbleControls();
+        }
+      },
+      4: {
+        name: "AirClip Mini",
+        form: "Glasses / Lapel Clip",
+        mass: "14.0g",
+        batt: "24.0h",
+        desc: "Featherweight Eyewear Clip with Crimson Mechanical Privacy Mute Switch and Tap Zone",
+        render: (c) => {
+          c.innerHTML = `
+            <div style="display:flex; flex-direction:column; align-items:center; gap:16px;">
+              <div class="clip-mute-toggle unmuted" id="clipMuteBtn">
+                <span>PRIVACY SWITCH: ACTIVE</span>
+              </div>
+              <button class="wand-trigger-btn" id="clipTapBtn" style="background:#0f172a; border:1px solid #334155;">
+                👆 Outer Tap Zone
+              </button>
+              <div style="font-size:11px; color:var(--text-dim); text-align:center;">
+                Mechanical switch cuts sensor rail for certified zero-telemetry privacy
+              </div>
+            </div>
+          `;
+          setupClipControls();
+        }
+      },
+      5: {
+        name: "AirDeck Controller",
+        form: "Asymmetric Thumb-Deck",
+        mass: "68.0g",
+        batt: "50.0h",
+        desc: "One-Handed Thumb Deck with Concave Force Trackpad, Dual Shoulder Triggers, and OLED Pill",
+        render: (c) => {
+          c.innerHTML = `
+            <div style="display:flex; flex-direction:column; align-items:center;">
+              <div class="deck-bumpers">
+                <button class="deck-bumper-btn" id="deckL1">L1 Click</button>
+                <button class="deck-bumper-btn" id="deckR1">R1 Click</button>
+              </div>
+              <div class="deck-oled" id="deckOled">
+                <div>AIRDECK 68G • 50H</div>
+                <div id="deckOledCoord" style="color:#10b981">X:0 Y:0 • 1000HZ</div>
+              </div>
+              <div class="ring-trackball-core" id="deckTrackpad" style="width:110px; height:110px; border-radius:24px;">
+                FORCE PAD
+              </div>
+            </div>
+          `;
+          setupDeckControls();
+        }
+      }
+    };
+
+    function selectHardwareDevice(devId) {
+      document.querySelectorAll('.hw-pill').forEach(p => {
+        p.classList.toggle('active', p.dataset.hw === String(devId));
+      });
+      const prof = hwProfiles[devId];
+      if (!prof) return;
+      hwMetaTitle.textContent = `${prof.name} (${prof.form})`;
+      hwMetaSubtitle.textContent = prof.desc;
+      hwBadgeMass.textContent = prof.mass;
+      hwBadgeBatt.textContent = prof.batt;
+      prof.render(hwStage);
+      showToast(`Selected ${prof.name}`, '🎮');
+    }
+
+    document.querySelectorAll('.hw-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        vibrate(10);
+        selectHardwareDevice(pill.dataset.hw);
+      });
+    });
+
+    function setupRingControls() {
+      const tb = document.getElementById('ringTrackball');
+      const bz = document.getElementById('ringBezel');
+      let lx = 0, ly = 0;
+      tb.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        lx = e.touches[0].clientX;
+        ly = e.touches[0].clientY;
+        vibrate(8);
+      }, { passive: false });
+      tb.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        const cx = e.touches[0].clientX;
+        const cy = e.touches[0].clientY;
+        sendMotion((cx - lx) * 1.5, (cy - ly) * 1.5);
+        lx = cx;
+        ly = cy;
+      }, { passive: false });
+      tb.addEventListener('click', () => {
+        sendAction('click');
+        showToast('Ring Tap Click', '●');
+      });
+      bz.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        ly = e.touches[0].clientY;
+      }, { passive: false });
+      bz.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        const cy = e.touches[0].clientY;
+        const dy = (cy - ly) * 4;
+        ly = cy;
+        sendAction('scroll', 0, dy);
+        vibrate(4);
+      }, { passive: false });
+    }
+
+    function setupWandControls() {
+      document.getElementById('wandTrigger').addEventListener('click', () => {
+        sendAction('click');
+        vibrate(20);
+        showToast('Wand Trigger Actuated', '🎯');
+      });
+      document.querySelectorAll('.wand-dpad-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const act = btn.dataset.act;
+          if (act === 'click') {
+            sendAction('click');
+          } else if (act === 'arrow_up') {
+            sendMotion(0, -25);
+          } else if (act === 'arrow_down') {
+            sendMotion(0, 25);
+          } else if (act === 'arrow_left') {
+            sendMotion(-25, 0);
+          } else if (act === 'arrow_right') {
+            sendMotion(25, 0);
+          }
+          vibrate(8);
+        });
+      });
+      document.getElementById('wandSqueezeL').addEventListener('click', () => {
+        sendAction('right_click');
+        vibrate(15);
+        showToast('Left Lateral Squeeze', '○');
+      });
+      document.getElementById('wandSqueezeR').addEventListener('click', () => {
+        sendAction('middle_click');
+        vibrate(15);
+        showToast('Right Lateral Squeeze', '◎');
+      });
+    }
+
+    function setupPebbleControls() {
+      const dome = document.getElementById('pebbleDome');
+      let lx = 0, ly = 0;
+      dome.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        lx = e.touches[0].clientX;
+        ly = e.touches[0].clientY;
+      }, { passive: false });
+      dome.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        const cx = e.touches[0].clientX;
+        const cy = e.touches[0].clientY;
+        sendMotion((cx - lx) * 1.3, (cy - ly) * 1.3);
+        lx = cx;
+        ly = cy;
+      }, { passive: false });
+      dome.addEventListener('click', () => {
+        sendAction('click');
+        showToast('Pebble Dome Tap', '●');
+      });
+      document.getElementById('pebbleDialLeft').addEventListener('click', () => {
+        sendAction('scroll', 0, -50);
+        vibrate(6);
+      });
+      document.getElementById('pebbleDialClick').addEventListener('click', () => {
+        sendAction('middle_click');
+        vibrate(12);
+        showToast('Knurled Dial Push-Click', '◎');
+      });
+      document.getElementById('pebbleDialRight').addEventListener('click', () => {
+        sendAction('scroll', 0, 50);
+        vibrate(6);
+      });
+    }
+
+    function setupClipControls() {
+      const muteBtn = document.getElementById('clipMuteBtn');
+      let muted = false;
+      muteBtn.addEventListener('click', () => {
+        muted = !muted;
+        vibrate(25);
+        if (muted) {
+          muteBtn.classList.remove('unmuted');
+          muteBtn.innerHTML = '<span>PRIVACY SWITCH: MUTED</span>';
+          showToast('Clip Sensor Rail Disconnected (Muted)', '🔒');
+          sendAction('toggle_tracking');
+        } else {
+          muteBtn.classList.add('unmuted');
+          muteBtn.innerHTML = '<span>PRIVACY SWITCH: ACTIVE</span>';
+          showToast('Clip Telemetry Resumed', '🔓');
+          sendAction('toggle_tracking');
+        }
+      });
+      document.getElementById('clipTapBtn').addEventListener('click', () => {
+        if (!muted) {
+          sendAction('click');
+          showToast('Clip Tap Actuated', '●');
+        } else {
+          showToast('Sensor Rail Muted - Click Ignored', '🔒');
+        }
+        vibrate(10);
+      });
+    }
+
+    function setupDeckControls() {
+      document.getElementById('deckL1').addEventListener('click', () => {
+        sendAction('click');
+        vibrate(12);
+        showToast('AirDeck L1 Left Click', '●');
+      });
+      document.getElementById('deckR1').addEventListener('click', () => {
+        sendAction('right_click');
+        vibrate(12);
+        showToast('AirDeck R1 Right Click', '○');
+      });
+      const pad = document.getElementById('deckTrackpad');
+      const oled = document.getElementById('deckOledCoord');
+      let lx = 0, ly = 0;
+      pad.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        lx = e.touches[0].clientX;
+        ly = e.touches[0].clientY;
+      }, { passive: false });
+      pad.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        const cx = e.touches[0].clientX;
+        const cy = e.touches[0].clientY;
+        const dx = (cx - lx) * 1.4;
+        const dy = (cy - ly) * 1.4;
+        sendMotion(dx, dy);
+        lx = cx;
+        ly = cy;
+        if (oled) oled.textContent = `dX:${Math.round(dx)} dY:${Math.round(dy)} • 1000HZ`;
+      }, { passive: false });
+    }
+
+    // Default select Concept 01: AirRing Pro
+    selectHardwareDevice(1);
 
     // Startup
     initWebSocket();

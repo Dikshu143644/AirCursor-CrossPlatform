@@ -20,6 +20,8 @@ import time
 import tkinter as tk
 from tkinter import messagebox, ttk
 from typing import Callable, Optional
+import webbrowser
+import subprocess
 
 # Ensure core and windows modules are in sys.path
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -31,6 +33,12 @@ if str(WINDOWS_DIR) not in sys.path:
 
 from aircursor_core.actions import PointerAction, Trigger
 from aircursor_core.settings import AppSettings
+from aircursor_core.hardware_profiles import (
+    HARDWARE_REGISTRY,
+    HardwareDeviceType,
+    HardwarePacketEncoder,
+    HardwarePacketDecoder,
+)
 from app_controller import AppController, TrackingMode
 import autostart
 from sensor_receiver import BluetoothAirPodsHelper
@@ -623,6 +631,42 @@ class ControlCenterGUI:
         )
         self.save_btn.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=(4, 0))
 
+        # Row 2 of action buttons: 5 Physical Remotes Companion & 3D Viewer
+        row2_frame = tk.Frame(main_frame, bg=self.c_bg)
+        row2_frame.pack(fill=tk.X, pady=(0, 8))
+
+        self.remotes_btn = tk.Button(
+            row2_frame,
+            text="🎮 5 Physical Remotes Companion",
+            font=("Segoe UI", 9, "bold"),
+            bg="#0f393b",
+            fg="#5eead4",
+            activebackground="#115e59",
+            activeforeground="#ffffff",
+            relief="flat",
+            bd=0,
+            cursor="hand2",
+            pady=7,
+            command=self._on_open_physical_remotes,
+        )
+        self.remotes_btn.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 4))
+
+        self.cad_viewer_btn = tk.Button(
+            row2_frame,
+            text="🌐 3D WebGL Viewer",
+            font=("Segoe UI", 9, "bold"),
+            bg="#372714",
+            fg="#fdba74",
+            activebackground="#7c2d12",
+            activeforeground="#ffffff",
+            relief="flat",
+            bd=0,
+            cursor="hand2",
+            pady=7,
+            command=self._on_open_3d_viewer,
+        )
+        self.cad_viewer_btn.pack(side=tk.RIGHT, fill=tk.X, expand=False, padx=(4, 0))
+
         # Bottom info bar
         bottom_frame = tk.Frame(main_frame, bg=self.c_bg)
         bottom_frame.pack(fill=tk.X, pady=(4, 0))
@@ -887,6 +931,24 @@ class ControlCenterGUI:
             fg=self.c_text_dim,
         )
 
+    def _on_open_3d_viewer(self) -> None:
+        """Opens the 3D WebGL Showcase in the user's default browser."""
+        viewer_path = ROOT_DIR / "cad" / "remote_showcase.html"
+        if viewer_path.exists():
+            webbrowser.open(viewer_path.as_uri())
+            self.status_msg_lbl.config(
+                text="✓ Opened 3D WebGL remote showcase in browser.", fg=self.c_green
+            )
+        else:
+            self.status_msg_lbl.config(
+                text="✗ 3D showcase file not found.", fg="#f87171"
+            )
+        self.root.after(3500, self._reset_status_bar)
+
+    def _on_open_physical_remotes(self) -> None:
+        """Opens the 5 Physical Remotes Companion window."""
+        PhysicalRemotesDialog(self.root, self.controller)
+
     # ---------------- WINDOW LIFECYCLE ----------------
 
     def minimize_to_tray(self) -> None:
@@ -940,3 +1002,353 @@ class ControlCenterGUI:
     def run(self) -> None:
         """Starts the Tkinter main event loop."""
         self.root.mainloop()
+
+
+class PhysicalRemotesDialog(tk.Toplevel):
+    """Interactive companion window for the 5 AirCursor physical remote products."""
+
+    def __init__(self, parent: tk.Tk, controller: AppController):
+        super().__init__(parent)
+        self.controller = controller
+        self.title("AirCursor Physical Remote Companion (5 Products)")
+        self.geometry("820x640")
+        self.minsize(760, 580)
+        self.configure(bg="#121214")
+
+        # Color palette
+        self.c_bg = "#121214"
+        self.c_card = "#1c1c20"
+        self.c_border = "#2e2e36"
+        self.c_text = "#f4f4f5"
+        self.c_text_muted = "#a1a1aa"
+        self.c_cyan = "#06b6d4"
+        self.c_green = "#10b981"
+        self.c_amber = "#f59e0b"
+
+        self.profiles = HARDWARE_REGISTRY.list_all_profiles()
+        self.selected_index = 0
+
+        self._build_ui()
+        self._select_product(0)
+
+    def _build_ui(self) -> None:
+        # Header banner
+        header = tk.Frame(self, bg="#18181b", padx=16, pady=12, highlightthickness=1, highlightbackground=self.c_border)
+        header.pack(fill=tk.X)
+
+        title = tk.Label(
+            header,
+            text="🎮 AirCursor Physical Remote Hardware Suite",
+            font=("Segoe UI", 14, "bold"),
+            fg=self.c_text,
+            bg="#18181b"
+        )
+        title.pack(side=tk.LEFT)
+
+        subtitle = tk.Label(
+            header,
+            text="5 Production Concepts • BLE 5.3 & 2.4GHz RF • Sub-4ms Latency",
+            font=("Segoe UI", 9),
+            fg=self.c_cyan,
+            bg="#18181b"
+        )
+        subtitle.pack(side=tk.LEFT, padx=(12, 0), pady=(3, 0))
+
+        # Main split container
+        content = tk.Frame(self, bg=self.c_bg, padx=16, pady=12)
+        content.pack(fill=tk.BOTH, expand=True)
+
+        # Left list: 5 devices
+        left_col = tk.Frame(content, bg=self.c_bg, width=280)
+        left_col.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 14))
+
+        tk.Label(
+            left_col,
+            text="SELECT HARDWARE PRODUCT",
+            font=("Segoe UI", 8, "bold"),
+            fg=self.c_text_muted,
+            bg=self.c_bg
+        ).pack(anchor="w", pady=(0, 6))
+
+        self.btn_list = []
+        icons = ["💍", "🪄", "🪨", "📎", "🎮"]
+        for idx, p in enumerate(self.profiles):
+            btn = tk.Button(
+                left_col,
+                text=f"{icons[idx]} {p.model_name}\n   {p.form_factor} ({p.mass_grams}g)",
+                font=("Segoe UI", 9, "bold"),
+                justify=tk.LEFT,
+                anchor="w",
+                bg="#232328",
+                fg=self.c_text,
+                activebackground="#2e2e38",
+                activeforeground="#ffffff",
+                relief="flat",
+                bd=0,
+                padx=12,
+                pady=10,
+                cursor="hand2",
+                command=lambda i=idx: self._select_product(i)
+            )
+            btn.pack(fill=tk.X, pady=3)
+            self.btn_list.append(btn)
+
+        # Bottom CAD / WebGL shortcuts in left col
+        tk.Label(left_col, text="", bg=self.c_bg).pack(expand=True)
+        
+        webgl_btn = tk.Button(
+            left_col,
+            text="🌐 3D WebGL Showcase",
+            font=("Segoe UI", 9, "bold"),
+            bg="#372714",
+            fg="#fdba74",
+            activebackground="#7c2d12",
+            activeforeground="#ffffff",
+            relief="flat",
+            bd=0,
+            pady=8,
+            cursor="hand2",
+            command=self._launch_webgl
+        )
+        webgl_btn.pack(fill=tk.X, pady=(4, 2))
+
+        folder_btn = tk.Button(
+            left_col,
+            text="📁 Open CAD Folder",
+            font=("Segoe UI", 9),
+            bg="#1e293b",
+            fg="#94a3b8",
+            activebackground="#334155",
+            activeforeground="#ffffff",
+            relief="flat",
+            bd=0,
+            pady=6,
+            cursor="hand2",
+            command=self._open_cad_folder
+        )
+        folder_btn.pack(fill=tk.X, pady=2)
+
+        dossier_btn = tk.Button(
+            left_col,
+            text="📄 Manufacturing Dossier",
+            font=("Segoe UI", 9),
+            bg="#1e293b",
+            fg="#94a3b8",
+            activebackground="#334155",
+            activeforeground="#ffffff",
+            relief="flat",
+            bd=0,
+            pady=6,
+            cursor="hand2",
+            command=self._open_dossier
+        )
+        dossier_btn.pack(fill=tk.X, pady=2)
+
+        # Right col: Details card
+        self.right_col = tk.Frame(
+            content,
+            bg=self.c_card,
+            highlightthickness=1,
+            highlightbackground=self.c_border,
+            padx=18,
+            pady=16
+        )
+        self.right_col.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+
+        self.lbl_dev_name = tk.Label(
+            self.right_col,
+            text="Product Details",
+            font=("Segoe UI", 16, "bold"),
+            fg=self.c_text,
+            bg=self.c_card
+        )
+        self.lbl_dev_name.pack(anchor="w")
+
+        # Badges row
+        self.badges_frame = tk.Frame(self.right_col, bg=self.c_card)
+        self.badges_frame.pack(fill=tk.X, pady=(4, 12))
+
+        self.lbl_mass_badge = tk.Label(
+            self.badges_frame,
+            text="Mass: 8.8g",
+            font=("Segoe UI", 8, "bold"),
+            bg="#1e3a5f",
+            fg="#93c5fd",
+            padx=8,
+            pady=2
+        )
+        self.lbl_mass_badge.pack(side=tk.LEFT, padx=(0, 6))
+
+        self.lbl_batt_badge = tk.Label(
+            self.badges_frame,
+            text="Battery: 18.5 hrs",
+            font=("Segoe UI", 8, "bold"),
+            bg="#14532d",
+            fg="#86efac",
+            padx=8,
+            pady=2
+        )
+        self.lbl_batt_badge.pack(side=tk.LEFT, padx=(0, 6))
+
+        self.lbl_rf_badge = tk.Label(
+            self.badges_frame,
+            text="BLE 5.3 & 2.4GHz RF",
+            font=("Segoe UI", 8, "bold"),
+            bg="#3b0764",
+            fg="#d8b4fe",
+            padx=8,
+            pady=2
+        )
+        self.lbl_rf_badge.pack(side=tk.LEFT)
+
+        # Section: Primary Controls
+        tk.Label(
+            self.right_col,
+            text="PRIMARY CONTROLS",
+            font=("Segoe UI", 8, "bold"),
+            fg=self.c_cyan,
+            bg=self.c_card
+        ).pack(anchor="w", pady=(8, 2))
+
+        self.lbl_controls = tk.Label(
+            self.right_col,
+            text="",
+            font=("Segoe UI", 9),
+            fg=self.c_text,
+            bg=self.c_card,
+            justify=tk.LEFT,
+            wraplength=440
+        )
+        self.lbl_controls.pack(anchor="w", pady=(0, 8))
+
+        # Section: Sensors
+        tk.Label(
+            self.right_col,
+            text="SENSOR SUITE",
+            font=("Segoe UI", 8, "bold"),
+            fg=self.c_amber,
+            bg=self.c_card
+        ).pack(anchor="w", pady=(4, 2))
+
+        self.lbl_sensors = tk.Label(
+            self.right_col,
+            text="",
+            font=("Segoe UI", 9),
+            fg=self.c_text,
+            bg=self.c_card,
+            justify=tk.LEFT,
+            wraplength=440
+        )
+        self.lbl_sensors.pack(anchor="w", pady=(0, 8))
+
+        # Section: 3D CAD Deliverables
+        tk.Label(
+            self.right_col,
+            text="AVAILABLE 3D CAD DELIVERABLES",
+            font=("Segoe UI", 8, "bold"),
+            fg=self.c_text_muted,
+            bg=self.c_card
+        ).pack(anchor="w", pady=(4, 2))
+
+        self.lbl_cad = tk.Label(
+            self.right_col,
+            text="✓ .blend (Blender 5.1)  ✓ .glb (WebGL)  ✓ .obj (3D)  ✓ .stl (3D Print)",
+            font=("Segoe UI", 9, "bold"),
+            fg=self.c_green,
+            bg=self.c_card
+        )
+        self.lbl_cad.pack(anchor="w", pady=(0, 14))
+
+        # Action test button
+        self.btn_inject = tk.Button(
+            self.right_col,
+            text="⚡ Inject Synthetic Telemetry Packet Test",
+            font=("Segoe UI", 10, "bold"),
+            bg="#0369a1",
+            fg="#ffffff",
+            activebackground="#0284c7",
+            activeforeground="#ffffff",
+            relief="flat",
+            bd=0,
+            pady=9,
+            cursor="hand2",
+            command=self._inject_test_packet
+        )
+        self.btn_inject.pack(fill=tk.X, pady=(8, 4))
+
+        self.lbl_inject_status = tk.Label(
+            self.right_col,
+            text="Ready to decode live packets.",
+            font=("Segoe UI", 8),
+            fg=self.c_text_muted,
+            bg=self.c_card
+        )
+        self.lbl_inject_status.pack(anchor="w")
+
+    def _select_product(self, idx: int) -> None:
+        self.selected_index = idx
+        p = self.profiles[idx]
+        HARDWARE_REGISTRY.set_active_device(p.device_type)
+
+        # Update button highlights
+        for i, btn in enumerate(self.btn_list):
+            if i == idx:
+                btn.config(bg="#0f393b", fg="#5eead4")
+            else:
+                btn.config(bg="#232328", fg=self.c_text)
+
+        # Update right column info
+        self.lbl_dev_name.config(text=f"{p.model_name} — {p.form_factor}")
+        self.lbl_mass_badge.config(text=f"Mass: {p.mass_grams}g")
+        self.lbl_batt_badge.config(text=f"Battery: {p.battery_capacity_mah}mAh ({p.battery_life_hours}h)")
+
+        controls_text = "\n".join(f"• {c}" for c in p.primary_controls)
+        self.lbl_controls.config(text=controls_text)
+
+        sensors_text = "\n".join(f"• {s}" for s in p.sensor_suite)
+        self.lbl_sensors.config(text=sensors_text)
+
+        self.lbl_inject_status.config(
+            text=f"Selected active profile: {p.model_name}. Ready for BLE / RF / Simulation.",
+            fg=self.c_green
+        )
+
+    def _inject_test_packet(self) -> None:
+        """Encodes and decodes a simulated packet for the selected device."""
+        p = self.profiles[self.selected_index]
+        dev_type = p.device_type
+        
+        if dev_type == HardwareDeviceType.AIRRING_PRO:
+            pkt = HardwarePacketEncoder.encode_airring_pro(seq=1, opt_x=12, opt_y=-8, bezel_delta=2, primary_click=True)
+        elif dev_type == HardwareDeviceType.AIRWAND_ELITE:
+            pkt = HardwarePacketEncoder.encode_airwand_elite(seq=1, pitch=15.0, thumb_x=10, trigger_force=0.9)
+        elif dev_type == HardwareDeviceType.AIRPEBBLE_TOUCH:
+            pkt = HardwarePacketEncoder.encode_airpebble_touch(seq=1, opt_dx=40, opt_dy=-30, dial_delta=1)
+        elif dev_type == HardwareDeviceType.AIRCLIP_MINI:
+            pkt = HardwarePacketEncoder.encode_airclip_mini(seq=1, pitch=5.0, tap_count=1)
+        else:
+            pkt = HardwarePacketEncoder.encode_airdeck_controller(seq=1, track_x=25, track_y=-15, force=0.5, l1=True)
+
+        event = HardwarePacketDecoder.decode(pkt)
+        if event:
+            self.lbl_inject_status.config(
+                text=f"✓ Decoded {len(pkt)}-byte packet from {p.model_name}! Click={event.primary_click}, Dx={event.delta_x}, Dy={event.delta_y}",
+                fg=self.c_green
+            )
+        else:
+            self.lbl_inject_status.config(text="✗ Failed to decode packet.", fg="#f87171")
+
+    def _launch_webgl(self) -> None:
+        viewer_path = ROOT_DIR / "cad" / "remote_showcase.html"
+        if viewer_path.exists():
+            webbrowser.open(viewer_path.as_uri())
+
+    def _open_cad_folder(self) -> None:
+        cad_dir = ROOT_DIR / "cad" / "models"
+        if cad_dir.exists():
+            os.startfile(str(cad_dir))
+
+    def _open_dossier(self) -> None:
+        dossier_path = ROOT_DIR / "cad" / "MANUFACTURING_DOSSIER.md"
+        if dossier_path.exists():
+            os.startfile(str(dossier_path))
