@@ -61,14 +61,15 @@ class TestDockerfileSyntaxAndBestPractices(unittest.TestCase):
             self.assertIn(pkg, self.content, f"Dockerfile must install virtual display package: {pkg}")
 
     def test_dockerfile_ports_exposed(self):
-        """Verifies port 8765, 4242/udp, and 6080 are exposed."""
+        """Only the authenticated remote and sensor input ports are exposed by default."""
         exposes = re.findall(r"^EXPOSE\s+([^\s]+)", self.content, re.MULTILINE | re.IGNORECASE)
         self.assertIn("8765", exposes, "Must expose 8765 for Web Remote & REST API")
         self.assertTrue(
             any("4242" in p and "udp" in p.lower() for p in exposes),
             "Must expose 4242/udp for OpenTrack / AirPods receiver",
         )
-        self.assertIn("6080", exposes, "Must expose 6080 for noVNC web display")
+        self.assertNotIn("6080", exposes, "noVNC must not be exposed by default")
+        self.assertIn("ENABLE_NOVNC=false", self.content)
 
     def test_dockerfile_unprivileged_user(self):
         """Verifies container creates non-root user and switches with USER instruction."""
@@ -88,6 +89,10 @@ class TestDockerfileSyntaxAndBestPractices(unittest.TestCase):
         self.assertIn("x11vnc", sh_content, "entrypoint.sh must handle x11vnc")
         self.assertIn("websockify", sh_content, "entrypoint.sh must handle websockify/noVNC")
         self.assertIn("trap", sh_content, "entrypoint.sh must handle signal trapping")
+        self.assertIn('ENABLE_NOVNC="${ENABLE_NOVNC:-false}"', sh_content)
+        self.assertIn("VNC_PASSWORD", sh_content)
+        self.assertIn("-rfbauth", sh_content)
+        self.assertNotIn("-nopw", sh_content)
 
 
 class TestDockerComposeConfig(unittest.TestCase):
@@ -114,6 +119,7 @@ class TestDockerComposeConfig(unittest.TestCase):
         has_udp = any("4242:4242/udp" in p for p in port_strs)
         self.assertTrue(has_http, "docker-compose must map port 8765:8765")
         self.assertTrue(has_udp, "docker-compose must map port 4242:4242/udp")
+        self.assertFalse(any("6080:6080" in p for p in port_strs), "noVNC must not be published by default")
 
     def test_compose_environment_flags(self):
         """Verifies AUTORUN=true and MODE flags (synthetic, airpods, camera)."""
@@ -130,6 +136,7 @@ class TestDockerComposeConfig(unittest.TestCase):
 
         self.assertIn("AUTORUN", env_dict)
         self.assertIn("MODE", env_dict)
+        self.assertEqual(str(env_dict.get("ENABLE_NOVNC", "")).lower(), "false")
 
     def test_compose_volumes_and_restart_policy(self):
         """Verifies custom config volume mount and restart policy."""
@@ -189,6 +196,7 @@ class TestKubernetesOfflineManifests(unittest.TestCase):
         port_names = {p["name"]: p["containerPort"] for p in c.get("ports", [])}
         self.assertEqual(port_names.get("http-web"), 8765)
         self.assertEqual(port_names.get("udp-sensor"), 4242)
+        self.assertNotIn(6080, port_names.values(), "noVNC must be disabled in the default pod")
 
         # Liveness & Readiness Probes
         live = c.get("livenessProbe", {}).get("httpGet", {})
@@ -214,7 +222,8 @@ class TestKubernetesOfflineManifests(unittest.TestCase):
         with open(svc_path, "r", encoding="utf-8") as f:
             docs = list(yaml.safe_load_all(f))
 
-        self.assertGreaterEqual(len(docs), 1)
+        self.assertEqual(len(docs), 1, "Only the internal ClusterIP service should be applied by default")
+        self.assertEqual(docs[0]["spec"].get("type"), "ClusterIP")
         found_http = False
         found_udp = False
 
@@ -226,6 +235,7 @@ class TestKubernetesOfflineManifests(unittest.TestCase):
                     found_http = True
                 if p.get("port") == 4242 and p.get("protocol") == "UDP":
                     found_udp = True
+                self.assertNotEqual(p.get("port"), 6080, "noVNC must not be exposed by default")
 
         self.assertTrue(found_http, "k8s service must expose port 8765 TCP")
         self.assertTrue(found_udp, "k8s service must expose port 4242 UDP")
@@ -245,6 +255,7 @@ class TestKubernetesOfflineManifests(unittest.TestCase):
         self.assertIn("ENABLE_NOD", data)
         self.assertIn("ENABLE_SHAKE", data)
         self.assertIn("ENABLE_TILT", data)
+        self.assertEqual(data.get("ENABLE_NOVNC"), "false")
         self.assertIn("settings.json", data)
 
         # Embedded JSON settings must be valid
@@ -266,6 +277,9 @@ class TestKubernetesOfflineManifests(unittest.TestCase):
         root_path = next((p for p in paths if p["path"] == "/"), None)
         self.assertIsNotNone(root_path, "Ingress must route path / to Web Remote")
         self.assertEqual(root_path["backend"]["service"]["port"]["number"], 8765)
+        self.assertTrue(doc["spec"].get("tls"), "Ingress must require TLS for bearer-token transport")
+        self.assertEqual(doc["spec"]["rules"][0].get("host"), "aircursor.example.com")
+        self.assertFalse(any(p["path"].startswith("/vnc") for p in paths), "noVNC must not be routed")
 
     def test_kustomization_schema(self):
         """Validates kustomization.yaml references all components."""
