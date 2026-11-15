@@ -5,6 +5,12 @@
   'use strict';
 
   // State
+  const pairingParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  let accessToken = pairingParams.get('token') || sessionStorage.getItem('aircursor-access-token') || '';
+  if (accessToken) {
+    sessionStorage.setItem('aircursor-access-token', accessToken);
+    if (window.location.hash) history.replaceState(null, '', window.location.pathname + window.location.search);
+  }
   let trackingActive = false;
   let scrollModeActive = false;
   let isGyroStreaming = false;
@@ -53,13 +59,38 @@
   }
 
   // API Call Helpers
+  function getAuthorizationHeaders() {
+    if (!accessToken) {
+      accessToken = window.prompt('Enter the AirCursor pairing token displayed on the host computer:') || '';
+      if (accessToken) sessionStorage.setItem('aircursor-access-token', accessToken);
+    }
+    if (!accessToken) return null;
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + accessToken
+    };
+  }
+
+  async function handleUnauthorized(response) {
+    if (response && response.status === 401) {
+      accessToken = '';
+      sessionStorage.removeItem('aircursor-access-token');
+      alert('AirCursor pairing token rejected. Scan the host QR code again.');
+      return true;
+    }
+    return false;
+  }
+
   async function postAction(actionName) {
     try {
+      const headers = getAuthorizationHeaders();
+      if (!headers) return;
       const res = await fetch('/api/action', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ action: actionName })
       });
+      if (await handleUnauthorized(res)) return;
       const data = await res.json();
       updateUIStatus(data);
     } catch (err) {
@@ -69,11 +100,14 @@
 
   async function postTelemetry(yaw, pitch, roll) {
     try {
-      await fetch('/api/telemetry', {
+      const headers = getAuthorizationHeaders();
+      if (!headers) return;
+      const response = await fetch('/api/telemetry', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ yaw: yaw, pitch: pitch, roll: roll })
       });
+      await handleUnauthorized(response);
     } catch (err) {
       // Ignore network jitter
     }
@@ -81,13 +115,16 @@
 
   async function updateSettings(key, val) {
     try {
+      const headers = getAuthorizationHeaders();
+      if (!headers) return;
       const payload = {};
       payload[key] = val;
-      await fetch('/api/settings', {
+      const response = await fetch('/api/settings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(payload)
       });
+      await handleUnauthorized(response);
     } catch (err) {
       console.warn('Failed to update setting:', key, err);
     }
