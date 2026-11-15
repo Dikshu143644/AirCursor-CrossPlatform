@@ -83,10 +83,10 @@ class PointerSmoother:
         self.target: Vec2 = Vec2.zero
         self.target_time: float = -float("inf")
 
-    def set_target(self, v: Vec2, at: float) -> None:
+    def set_target(self, v: Vec2, at: float = 0.0, *, timestamp: Optional[float] = None) -> None:
         """Sets the new target velocity and timestamp."""
         self.target = v
-        self.target_time = at
+        self.target_time = at if timestamp is None else timestamp
 
     setTarget = set_target
 

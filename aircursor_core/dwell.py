@@ -48,6 +48,13 @@ class DwellDetector:
         self._anchor_position: Optional[Vec2] = None
 
     @property
+    def armed(self) -> bool:
+        """Whether dwell click is armed."""
+        return self._armed
+
+    is_armed = armed
+
+    @property
     def anchor_id(self) -> int:
         """Changes every time the pointer settles somewhere new."""
         return self._anchor_id
