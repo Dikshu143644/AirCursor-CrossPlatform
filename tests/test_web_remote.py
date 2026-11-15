@@ -38,7 +38,7 @@ from aircursor_core.pairing_qr import (
     matrix_to_html,
     _pure_python_qr,
 )
-from aircursor_core.web_remote_server import WebRemoteServer, WS_GUID
+from aircursor_core.web_remote_server import WebRemoteServer, WebRemoteRequestHandler, WS_GUID
 
 
 class TestPairingQR(unittest.TestCase):
@@ -169,6 +169,17 @@ class TestWebRemoteServer(unittest.TestCase):
         self.assertTrue(self.server.is_running)
         self.assertGreater(self.port, 0)
         self.assertTrue(self.server.url.startswith("http://"))
+
+    def test_websocket_rejects_oversized_extended_frames(self):
+        """Rejects oversized RFC 6455 payloads after decoding extended lengths."""
+        receiver, sender = socket.socketpair()
+        try:
+            sender.sendall(bytes((0x81, 0x7F)) + struct.pack("!Q", 65537))
+            handler = object.__new__(WebRemoteRequestHandler)
+            self.assertIsNone(handler._read_ws_frame(receiver))
+        finally:
+            receiver.close()
+            sender.close()
 
     def test_get_root_serves_remote_html(self):
         """Subject 04: GET / serves aircursor_core/static/remote.html."""
