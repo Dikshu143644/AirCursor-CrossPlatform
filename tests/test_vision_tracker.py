@@ -574,7 +574,11 @@ class TestWebRemoteAPI(unittest.TestCase):
     def test_post_camera_toggle_endpoint(self):
         """POST /api/camera/toggle toggles vision tracking."""
         url = "http://127.0.0.1:8792/api/camera/toggle"
-        req = urllib.request.Request(url, method="POST")
+        req = urllib.request.Request(
+            url,
+            headers={"Authorization": "Bearer " + self.server.access_token},
+            method="POST",
+        )
         with urllib.request.urlopen(req, timeout=2.0) as resp:
             self.assertEqual(resp.status, 200)
             data = json.loads(resp.read().decode("utf-8"))
