@@ -67,7 +67,7 @@ RUN python3 -m pip install --no-cache-dir '.[vision]'
 # Ensure entrypoint is executable
 RUN chmod +x /app/entrypoint.sh
 
-# Expose Web Remote & API (8765), OpenTrack/AirPods UDP (4242/udp), and noVNC (6080)
+# Expose authenticated Web Remote (8765) and OpenTrack/AirPods UDP (4242/udp). noVNC is opt-in.
 EXPOSE 8765
 EXPOSE 4242/udp
 
