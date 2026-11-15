@@ -39,9 +39,6 @@ spec:
             - name: udp-sensor
               containerPort: 4242
               protocol: UDP
-            - name: novnc-display
-              containerPort: 6080
-              protocol: TCP
           resources:
             requests:
               cpu: 100m
