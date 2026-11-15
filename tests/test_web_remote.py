@@ -442,6 +442,7 @@ class TestWebRemoteServer(unittest.TestCase):
         time.sleep(0.1)
         self.assertEqual(self.server.connection_count, 0)
 
+    @unittest.skipUnless(sys.platform == "win32", "AppController integration requires Windows input APIs")
     def test_app_controller_integration(self):
         """Verifies direct binding of AppController with WebRemoteServer."""
         from app_controller import AppController
