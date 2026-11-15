@@ -11,7 +11,7 @@ if exist "%~dp0windows\main.py" (
 cls
 echo ========================================================
 echo               AirCursor for Windows
-echo            Control Center & Head Tracker
+echo            Control Center ^& Head Tracker
 echo ========================================================
 echo.
 echo Launching AirCursor Control Center...
