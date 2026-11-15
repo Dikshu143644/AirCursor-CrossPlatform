@@ -1,19 +1,1546 @@
-<!doctype html>
-<html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<meta name="theme-color" content="#101318"><title>AirCursor Remote</title>
-<style>
-:root{color-scheme:dark;font:16px system-ui;background:#101318;color:#f4f6f8}
-*{box-sizing:border-box}body{margin:0;min-height:100dvh;display:grid;grid-template-rows:auto 1fr auto;gap:14px;padding:18px;max-width:760px;margin:auto}
-header,footer{display:flex;align-items:center;justify-content:space-between;gap:12px}h1{font-size:1.15rem;margin:0}.status{font-size:.8rem;color:#aab4c2}
-.pad{border:1px solid #39424f;background:linear-gradient(145deg,#202733,#151a22);border-radius:24px;min-height:45dvh;touch-action:none;display:grid;place-items:center;color:#aab4c2;user-select:none}
-.controls{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}button{background:#252e3a;border:1px solid #455365;color:white;border-radius:15px;min-height:54px;font:inherit}.wide{grid-column:span 2}
-</style></head><body>
-<header><h1>AirCursor Remote</h1><span id="status" class="status">Connecting…</span></header>
-<main id="pad" class="pad" aria-label="Touchpad">Touch and move to control cursor</main>
-<section class="controls">
-<button id="left" class="wide">Left click</button><button id="right" class="wide">Right click</button>
-<button id="scrollUp">Scroll +</button><button id="scrollDown">Scroll −</button>
-<button id="recenter" class="wide">Recenter</button><button id="disconnect" class="wide">Disconnect</button>
-</section><footer><span class="status">Same Wi-Fi network • Local connection</span></footer>
-<script src="/remote.js" defer></script></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#060913">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="AirCursor">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='40' fill='%2300f0ff'/%3E%3C/svg%3E">
+  <title>AirCursor Remote</title>
+  <style>
+    :root {
+      --bg-dark: #060913;
+      --card-bg: rgba(15, 23, 42, 0.7);
+      --card-border: rgba(56, 189, 248, 0.18);
+      --cyan: #00f0ff;
+      --cyan-glow: rgba(0, 240, 255, 0.35);
+      --cyan-dim: #0284c7;
+      --emerald: #10b981;
+      --emerald-glow: rgba(16, 185, 129, 0.35);
+      --amber: #f59e0b;
+      --rose: #f43f5e;
+      --purple: #a855f7;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --font-stack: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg-dark);
+      background-image: 
+        radial-gradient(circle at 50% 0%, rgba(14, 116, 144, 0.25) 0%, transparent 60%),
+        radial-gradient(circle at 100% 100%, rgba(15, 23, 42, 0.8) 0%, transparent 50%),
+        radial-gradient(circle at 0% 100%, rgba(5, 150, 105, 0.12) 0%, transparent 50%);
+      color: var(--text-main);
+      font-family: var(--font-stack);
+      touch-action: none;
+      overscroll-behavior: none;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      padding-left: env(safe-area-inset-left, 0px);
+      padding-right: env(safe-area-inset-right, 0px);
+    }
+
+    /* Header Bar */
+    header {
+      flex-shrink: 0;
+      height: 52px;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(6, 9, 19, 0.6);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      z-index: 50;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-logo {
+      width: 26px;
+      height: 26px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--cyan), #2563eb);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 12px var(--cyan-glow);
+    }
+
+    .brand-logo svg {
+      width: 16px;
+      height: 16px;
+      fill: #fff;
+    }
+
+    .brand-name {
+      font-weight: 700;
+      font-size: 16px;
+      letter-spacing: 0.5px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .brand-badge {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 6px;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--cyan);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 20px;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--card-border);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--amber);
+      transition: background 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .status-dot.connected {
+      background: var(--emerald);
+      box-shadow: 0 0 8px var(--emerald-glow);
+    }
+
+    .status-dot.disconnected {
+      background: var(--rose);
+      box-shadow: 0 0 8px rgba(244, 63, 94, 0.5);
+    }
+
+    /* Tab Switcher Navigation */
+    .tab-bar {
+      flex-shrink: 0;
+      display: flex;
+      padding: 8px 12px;
+      gap: 8px;
+      background: rgba(6, 9, 19, 0.4);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      z-index: 40;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 9px 0;
+      border-radius: 12px;
+      border: 1px solid transparent;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .tab-btn.active {
+      background: rgba(0, 240, 255, 0.12);
+      border-color: rgba(0, 240, 255, 0.4);
+      color: var(--cyan);
+      box-shadow: 0 0 16px rgba(0, 240, 255, 0.15);
+    }
+
+    /* Main Container & Screens */
+    main {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .tab-pane {
+      position: absolute;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      padding: 12px;
+      gap: 12px;
+      opacity: 0;
+      transform: scale(0.98);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    .tab-pane.active {
+      display: flex;
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    /* -------------------------------------------------------------
+       TAB 1: TOUCHPAD
+       ------------------------------------------------------------- */
+    .touchpad-wrapper {
+      flex: 1;
+      position: relative;
+      display: flex;
+      gap: 8px;
+      min-height: 0;
+    }
+
+    .touchpad-surface {
+      flex: 1;
+      position: relative;
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      overflow: hidden;
+      cursor: crosshair;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .touchpad-grid {
+      position: absolute;
+      inset: 0;
+      opacity: 0.08;
+      background-image: 
+        linear-gradient(to right, #fff 1px, transparent 1px),
+        linear-gradient(to bottom, #fff 1px, transparent 1px);
+      background-size: 32px 32px;
+      pointer-events: none;
+    }
+
+    .touchpad-hint {
+      color: var(--text-dim);
+      font-size: 13px;
+      font-weight: 500;
+      pointer-events: none;
+      text-align: center;
+      line-height: 1.6;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .touchpad-hint svg {
+      width: 28px;
+      height: 28px;
+      stroke: var(--cyan);
+      opacity: 0.6;
+    }
+
+    /* Touch Point Visualizer Ripple */
+    .touch-dot {
+      position: absolute;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--cyan) 0%, transparent 70%);
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      opacity: 0.75;
+      box-shadow: 0 0 20px var(--cyan);
+      transition: width 0.1s ease, height 0.1s ease, opacity 0.2s ease;
+    }
+
+    /* Vertical Scroll Slider Strip */
+    .scroll-strip {
+      width: 44px;
+      flex-shrink: 0;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 0;
+      cursor: ns-resize;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .scroll-strip-notches {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      pointer-events: none;
+    }
+
+    .scroll-notch {
+      width: 14px;
+      height: 2px;
+      background: var(--text-dim);
+      border-radius: 1px;
+      opacity: 0.5;
+    }
+
+    .scroll-thumb {
+      position: absolute;
+      width: 28px;
+      height: 48px;
+      border-radius: 12px;
+      background: rgba(0, 240, 255, 0.25);
+      border: 1px solid var(--cyan);
+      top: calc(50% - 24px);
+      left: calc(50% - 14px);
+      pointer-events: none;
+      box-shadow: 0 0 12px var(--cyan-glow);
+      transition: transform 0.05s linear;
+    }
+
+    .scroll-icon {
+      font-size: 11px;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    /* Tactile Bottom Mouse Buttons */
+    .mouse-click-bar {
+      height: 64px;
+      flex-shrink: 0;
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn-mouse {
+      flex: 1;
+      border-radius: 16px;
+      border: 1px solid var(--card-border);
+      background: rgba(15, 23, 42, 0.75);
+      color: var(--text-main);
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      transition: all 0.15s ease;
+    }
+
+    .btn-mouse.primary {
+      flex: 1.4;
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.15), rgba(37, 99, 235, 0.15));
+      border-color: rgba(0, 240, 255, 0.35);
+      color: #fff;
+    }
+
+    .btn-mouse:active, .btn-mouse.pressed {
+      transform: scale(0.97);
+      background: rgba(0, 240, 255, 0.25);
+      border-color: var(--cyan);
+      box-shadow: 0 0 16px var(--cyan-glow);
+    }
+
+    /* -------------------------------------------------------------
+       TAB 2: AIR MOUSE (GYRO)
+       ------------------------------------------------------------- */
+    .gyro-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+
+    .ios-permission-card {
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      border-radius: 16px;
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .ios-permission-card.hidden {
+      display: none !important;
+    }
+
+    .btn-permission {
+      background: var(--amber);
+      color: #000;
+      border: none;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 8px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    .telemetry-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .telemetry-cell {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 14px;
+      padding: 10px;
+      text-align: center;
+    }
+
+    .telemetry-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 4px;
+    }
+
+    .telemetry-val {
+      font-family: monospace;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--cyan);
+    }
+
+    /* Giant "Hold to Move" Clutch Button */
+    .air-clutch-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      min-height: 0;
+    }
+
+    .btn-clutch {
+      width: 190px;
+      height: 190px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(0, 240, 255, 0.15) 0%, rgba(15, 23, 42, 0.8) 75%);
+      border: 2px solid var(--cyan);
+      box-shadow: 0 0 25px rgba(0, 240, 255, 0.25), inset 0 0 20px rgba(0, 240, 255, 0.15);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      color: #fff;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .btn-clutch.active {
+      background: radial-gradient(circle, rgba(0, 240, 255, 0.4) 0%, rgba(37, 99, 235, 0.8) 80%);
+      transform: scale(0.95);
+      box-shadow: 0 0 45px var(--cyan), inset 0 0 30px var(--cyan);
+      border-color: #fff;
+    }
+
+    .btn-clutch svg {
+      width: 36px;
+      height: 36px;
+      stroke: var(--cyan);
+    }
+
+    .btn-clutch.active svg {
+      stroke: #fff;
+    }
+
+    .clutch-status {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .clutch-controls {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+    }
+
+    /* -------------------------------------------------------------
+       TAB 3: QUICK ACTIONS BAR & GRID
+       ------------------------------------------------------------- */
+    .actions-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .action-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 16px 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: var(--text-main);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      transition: all 0.15s ease;
+      text-align: center;
+    }
+
+    .action-btn:active, .action-btn.active {
+      transform: scale(0.96);
+      background: rgba(0, 240, 255, 0.2);
+      border-color: var(--cyan);
+      box-shadow: 0 0 16px var(--cyan-glow);
+    }
+
+    .action-btn.active-lock {
+      background: rgba(168, 85, 247, 0.25);
+      border-color: var(--purple);
+      box-shadow: 0 0 20px rgba(168, 85, 247, 0.4);
+      color: #fff;
+    }
+
+    .action-btn svg {
+      width: 26px;
+      height: 26px;
+      stroke: var(--cyan);
+    }
+
+    .action-btn.active-lock svg {
+      stroke: var(--purple);
+    }
+
+    /* -------------------------------------------------------------
+       TAB 4: SETTINGS & TUNING
+       ------------------------------------------------------------- */
+    .settings-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .setting-item {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .setting-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .setting-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .setting-val-tag {
+      font-size: 12px;
+      font-family: monospace;
+      color: var(--cyan);
+      font-weight: 700;
+    }
+
+    .slider {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.15);
+      outline: none;
+    }
+
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 10px var(--cyan);
+      cursor: pointer;
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .switch-slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 24px;
+      transition: 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .switch-slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background: white;
+      border-radius: 50%;
+      transition: 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    input:checked + .switch-slider {
+      background: var(--cyan);
+      box-shadow: 0 0 10px var(--cyan-glow);
+    }
+
+    input:checked + .switch-slider:before {
+      transform: translateX(20px);
+    }
+
+    /* PWA Install Banner Button */
+    .btn-install {
+      background: linear-gradient(135deg, var(--cyan-dim), var(--cyan));
+      color: #040914;
+      border: none;
+      border-radius: 14px;
+      padding: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 0 16px var(--cyan-glow);
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: absolute;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid var(--cyan);
+      box-shadow: 0 10px 30px rgba(0, 240, 255, 0.3);
+      padding: 8px 18px;
+      border-radius: 30px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      pointer-events: none;
+      opacity: 0;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 100;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header Bar -->
+  <header>
+    <div class="brand">
+      <div class="brand-logo">
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" fill="none"/>
+          <circle cx="12" cy="12" r="3" fill="currentColor"/>
+        </svg>
+      </div>
+      <div class="brand-name">
+        AirCursor <span class="brand-badge" id="hostBadge">Remote</span>
+      </div>
+    </div>
+    <div class="status-badge">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">Connecting...</span>
+    </div>
+  </header>
+
+  <!-- Navigation Tab Bar -->
+  <nav class="tab-bar">
+    <button class="tab-btn active" data-tab="tabTouchpad">
+      <span>🖱</span> Touchpad
+    </button>
+    <button class="tab-btn" data-tab="tabGyro">
+      <span>🎯</span> Air Mouse
+    </button>
+    <button class="tab-btn" data-tab="tabActions">
+      <span>⚡</span> Actions
+    </button>
+    <button class="tab-btn" data-tab="tabSettings">
+      <span>⚙️</span> Tuning
+    </button>
+  </nav>
+
+  <!-- Main Content Container -->
+  <main>
+    <!-- TAB 1: TOUCHPAD -->
+    <section class="tab-pane active" id="tabTouchpad">
+      <div class="touchpad-wrapper">
+        <div class="touchpad-surface" id="touchSurface">
+          <div class="touchpad-grid"></div>
+          <div class="touchpad-hint" id="touchHint">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+              <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 14a4 4 0 1 1 4-4 4 4 0 0 1-4 4z"/>
+            </svg>
+            <span>Touchpad Active</span>
+            <span style="font-size:11px; color:#475569">1-Finger Move | Tap Click | 2-Finger Right Click</span>
+          </div>
+        </div>
+
+        <!-- Vertical Scroll Strip -->
+        <div class="scroll-strip" id="scrollStrip">
+          <span class="scroll-icon">▲</span>
+          <div class="scroll-strip-notches">
+            <div class="scroll-notch"></div>
+            <div class="scroll-notch"></div>
+            <div class="scroll-notch"></div>
+            <div class="scroll-notch"></div>
+            <div class="scroll-notch"></div>
+          </div>
+          <div class="scroll-thumb" id="scrollThumb"></div>
+          <span class="scroll-icon">▼</span>
+        </div>
+      </div>
+
+      <!-- Tactile Left / Right Mouse Buttons -->
+      <div class="mouse-click-bar">
+        <button class="btn-mouse primary" id="btnLeftClick">
+          <span>●</span> Left Click
+        </button>
+        <button class="btn-mouse" id="btnRightClick">
+          <span>○</span> Right Click
+        </button>
+      </div>
+    </section>
+
+    <!-- TAB 2: AIR MOUSE (GYRO) -->
+    <section class="tab-pane" id="tabGyro">
+      <!-- iOS Permission Card -->
+      <div class="ios-permission-card" id="iosPermCard">
+        <div>
+          <div style="font-weight:700; font-size:13px; color:#f59e0b">iOS Motion Sensors</div>
+          <div style="font-size:11px; color:#94a3b8">Tap to grant DeviceOrientation permission</div>
+        </div>
+        <button class="btn-permission" id="btnRequestGyro">Enable Gyro</button>
+      </div>
+
+      <!-- Live Telemetry Card -->
+      <div class="gyro-card">
+        <div class="telemetry-row">
+          <div class="telemetry-cell">
+            <div class="telemetry-label">Pitch (X)</div>
+            <div class="telemetry-val" id="valPitch">0.0°</div>
+          </div>
+          <div class="telemetry-cell">
+            <div class="telemetry-label">Yaw (Z)</div>
+            <div class="telemetry-val" id="valYaw">0.0°</div>
+          </div>
+          <div class="telemetry-cell">
+            <div class="telemetry-label">Roll (Y)</div>
+            <div class="telemetry-val" id="valRoll">0.0°</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Giant "Hold to Move" Clutch Area -->
+      <div class="air-clutch-wrapper">
+        <button class="btn-clutch" id="btnClutch">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <polygon points="12 8 8 12 16 12 12 8"/>
+            <line x1="12" y1="12" x2="12" y2="16"/>
+          </svg>
+          <span>HOLD TO MOVE</span>
+        </button>
+        <div class="clutch-status">
+          <span id="clutchStateText">Touch & hold to steer cursor with gyro</span>
+        </div>
+      </div>
+
+      <!-- Gyro Quick Controls -->
+      <div class="clutch-controls">
+        <button class="btn-mouse" style="flex:1" id="btnZeroGyro">
+          <span>🎯</span> Re-Center Gyro
+        </button>
+        <button class="btn-mouse" style="flex:1" id="btnToggleContinuous">
+          <span id="contIcon">🔓</span> <span id="contText">Continuous: Off</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- TAB 3: QUICK ACTIONS BAR & GRID -->
+    <section class="tab-pane" id="tabActions">
+      <div class="actions-grid">
+        <button class="action-btn" data-action="click">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg>
+          <span>Left Click</span>
+        </button>
+        <button class="action-btn" data-action="right_click">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 3v9M12 12h9"/></svg>
+          <span>Right Click</span>
+        </button>
+        <button class="action-btn" data-action="middle_click">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2"/></svg>
+          <span>Middle Click</span>
+        </button>
+        <button class="action-btn" data-action="double_click">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6"/></svg>
+          <span>Double Click</span>
+        </button>
+        <button class="action-btn" id="btnDragToggle" data-action="drag_toggle">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M18 11V6a2 2 0 0 0-4 0v5M14 10V4a2 2 0 0 0-4 0v6M10 10.5V6a2 2 0 0 0-4 0v8a7 7 0 0 0 14 0v-3a2 2 0 0 0-4 0"/></svg>
+          <span id="dragText">Drag Lock: OFF</span>
+        </button>
+        <button class="action-btn" data-action="recenter">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+          <span>Recenter Cursor</span>
+        </button>
+        <button class="action-btn" data-action="pause">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+          <span id="pauseBtnText">Pause Tracking</span>
+        </button>
+        <button class="action-btn" data-action="camera_toggle">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          <span>Camera Mode</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- TAB 4: SETTINGS & TUNING -->
+    <section class="tab-pane" id="tabSettings">
+      <div class="settings-list">
+        <div class="setting-item">
+          <div class="setting-header">
+            <span class="setting-title">Touchpad Sensitivity</span>
+            <span class="setting-val-tag" id="lblTouchSens">1.2x</span>
+          </div>
+          <input type="range" class="slider" id="sliderTouchSens" min="0.3" max="3.0" step="0.1" value="1.2">
+        </div>
+
+        <div class="setting-item">
+          <div class="setting-header">
+            <span class="setting-title">Air Mouse (Gyro) Sensitivity</span>
+            <span class="setting-val-tag" id="lblGyroSens">1.0x</span>
+          </div>
+          <input type="range" class="slider" id="sliderGyroSens" min="0.2" max="3.0" step="0.1" value="1.0">
+        </div>
+
+        <div class="setting-item">
+          <div class="setting-header">
+            <span class="setting-title">Scroll Speed</span>
+            <span class="setting-val-tag" id="lblScrollSpeed">1.0x</span>
+          </div>
+          <input type="range" class="slider" id="sliderScrollSpeed" min="0.3" max="2.5" step="0.1" value="1.0">
+        </div>
+
+        <div class="setting-item">
+          <div class="toggle-row">
+            <span class="setting-title">Invert Scroll Wheel</span>
+            <label class="switch">
+              <input type="checkbox" id="chkInvertScroll">
+              <span class="switch-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-item">
+          <div class="toggle-row">
+            <span class="setting-title">Invert Gyro Vertical (Pitch)</span>
+            <label class="switch">
+              <input type="checkbox" id="chkInvertPitch">
+              <span class="switch-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-item">
+          <div class="toggle-row">
+            <span class="setting-title">Haptic Vibration Feedback</span>
+            <label class="switch">
+              <input type="checkbox" id="chkHaptics" checked>
+              <span class="switch-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <button class="btn-install" id="btnInstallApp" style="display:none">
+          <span>📲</span> Add to Home Screen (Install App)
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Floating Toast -->
+  <div class="toast" id="toastMsg">
+    <span id="toastIcon">✨</span>
+    <span id="toastText">Connected</span>
+  </div>
+
+  <script>
+    // =========================================================================
+    // AIRCURSOR REMOTE ENGINE (Pure JS, Zero External Libraries)
+    // =========================================================================
+
+    // State
+    const state = {
+      ws: null,
+      wsConnected: false,
+      isDragging: false,
+      isTracking: true,
+      continuousGyro: false,
+      clutchDown: false,
+      gyroSupported: false,
+      gyroBaseline: { pitch: 0, yaw: 0, roll: 0 },
+      lastGyro: { pitch: 0, yaw: 0, roll: 0 },
+      touchSens: 1.2,
+      gyroSens: 1.0,
+      scrollSpeed: 1.0,
+      invertScroll: false,
+      invertPitch: false,
+      haptics: true,
+      lastPing: 0,
+      roundtripMs: 0
+    };
+
+    // DOM Elements
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const toastMsg = document.getElementById('toastMsg');
+    const toastIcon = document.getElementById('toastIcon');
+    const toastText = document.getElementById('toastText');
+    const hostBadge = document.getElementById('hostBadge');
+
+    // Display host
+    if (location.hostname) {
+      hostBadge.textContent = location.hostname;
+    }
+
+    // Haptics helper
+    function vibrate(ms = 12) {
+      if (state.haptics && navigator.vibrate) {
+        try { navigator.vibrate(ms); } catch (e) {}
+      }
+    }
+
+    // Toast helper
+    let toastTimeout = null;
+    function showToast(text, icon = '✓') {
+      toastIcon.textContent = icon;
+      toastText.textContent = text;
+      toastMsg.classList.add('show');
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toastMsg.classList.remove('show');
+      }, 2000);
+    }
+
+    // =========================================================================
+    // NETWORKING: Dual Transport (WebSocket with automatic HTTP fallback)
+    // =========================================================================
+
+    function initWebSocket() {
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${proto}//${location.host}/ws`;
+
+      try {
+        state.ws = new WebSocket(wsUrl);
+
+        state.ws.onopen = () => {
+          state.wsConnected = true;
+          statusDot.className = 'status-dot connected';
+          statusText.textContent = 'Connected (WS)';
+          showToast('WebSocket connected', '⚡');
+        };
+
+        state.ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'pong' || data.type === 'status') {
+              if (data.ts) {
+                state.roundtripMs = Math.round(performance.now() - data.ts);
+                statusText.textContent = `${state.roundtripMs}ms`;
+              }
+              if (data.tracking_enabled !== undefined) {
+                state.isTracking = data.tracking_enabled;
+                updateTrackingUI();
+              }
+            }
+          } catch (e) {}
+        };
+
+        state.ws.onclose = () => {
+          state.wsConnected = false;
+          statusDot.className = 'status-dot';
+          statusText.textContent = 'Fallback (HTTP)';
+          // Reconnect after delay
+          setTimeout(initWebSocket, 2500);
+        };
+
+        state.ws.onerror = () => {
+          state.wsConnected = false;
+          statusDot.className = 'status-dot';
+          statusText.textContent = 'Fallback (HTTP)';
+        };
+      } catch (err) {
+        state.wsConnected = false;
+        statusDot.className = 'status-dot';
+        statusText.textContent = 'Fallback (HTTP)';
+        setTimeout(initWebSocket, 4000);
+      }
+    }
+
+    // Dispatch Action (WS or POST)
+    function sendAction(action, dx = 0.0, dy = 0.0) {
+      vibrate(15);
+      const payload = { action, dx: Number(dx), dy: Number(dy) };
+
+      if (state.wsConnected && state.ws.readyState === WebSocket.OPEN) {
+        state.ws.send(JSON.stringify({ type: 'action', ...payload }));
+      } else {
+        fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        }).catch(() => {});
+      }
+    }
+
+    // Dispatch Motion (WS or POST with rate limiting)
+    let lastHttpMotionTime = 0;
+    function sendMotion(dx, dy, gyro = null) {
+      const payload = {
+        source: 'remote',
+        dx: Number(dx || 0),
+        dy: Number(dy || 0),
+        gyro: gyro ? {
+          pitch: Number(gyro.pitch || 0),
+          yaw: Number(gyro.yaw || 0),
+          roll: Number(gyro.roll || 0)
+        } : null
+      };
+
+      if (state.wsConnected && state.ws.readyState === WebSocket.OPEN) {
+        state.ws.send(JSON.stringify({ type: 'motion', ...payload }));
+      } else {
+        // Rate-limit HTTP motion to 30Hz to prevent buffer bloat
+        const now = performance.now();
+        if (now - lastHttpMotionTime >= 33) {
+          lastHttpMotionTime = now;
+          fetch('/api/motion', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          }).catch(() => {});
+        }
+      }
+    }
+
+    // Periodic Heartbeat / Status Polling
+    setInterval(() => {
+      if (state.wsConnected && state.ws.readyState === WebSocket.OPEN) {
+        state.ws.send(JSON.stringify({ type: 'ping', ts: performance.now() }));
+      } else {
+        const t0 = performance.now();
+        fetch('/status')
+          .then(res => res.json())
+          .then(data => {
+            const rtt = Math.round(performance.now() - t0);
+            statusDot.className = 'status-dot connected';
+            statusText.textContent = `${rtt}ms (HTTP)`;
+            if (data.tracking_enabled !== undefined) {
+              state.isTracking = data.tracking_enabled;
+              updateTrackingUI();
+            }
+          })
+          .catch(() => {
+            statusDot.className = 'status-dot disconnected';
+            statusText.textContent = 'Offline';
+          });
+      }
+    }, 2500);
+
+    // =========================================================================
+    // TAB NAVIGATION
+    // =========================================================================
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const tabPanes = document.querySelectorAll('.tab-pane');
+
+    tabButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        vibrate(8);
+        const targetId = btn.dataset.tab;
+        tabButtons.forEach(b => b.classList.remove('active'));
+        tabPanes.forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        const targetPane = document.getElementById(targetId);
+        if (targetPane) targetPane.classList.add('active');
+      });
+    });
+
+    // =========================================================================
+    // TAB 1: TOUCHPAD GESTURES & EVENTS
+    // =========================================================================
+    const touchSurface = document.getElementById('touchSurface');
+    let touchState = {
+      activeTouches: {},
+      startTime: 0,
+      startX: 0,
+      startY: 0,
+      lastX: 0,
+      lastY: 0,
+      touchCount: 0,
+      hasMoved: false
+    };
+
+    function updateTouchVisualizer(e) {
+      // Remove old dots
+      document.querySelectorAll('.touch-dot').forEach(el => el.remove());
+      const rect = touchSurface.getBoundingClientRect();
+      for (let i = 0; i < e.touches.length; i++) {
+        const t = e.touches[i];
+        const dot = document.createElement('div');
+        dot.className = 'touch-dot';
+        dot.style.left = (t.clientX - rect.left) + 'px';
+        dot.style.top = (t.clientY - rect.top) + 'px';
+        touchSurface.appendChild(dot);
+      }
+    }
+
+    touchSurface.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      touchState.touchCount = e.touches.length;
+      touchState.startTime = performance.now();
+      touchState.hasMoved = false;
+
+      if (e.touches.length === 1) {
+        touchState.startX = e.touches[0].clientX;
+        touchState.startY = e.touches[0].clientY;
+        touchState.lastX = touchState.startX;
+        touchState.lastY = touchState.startY;
+      } else if (e.touches.length === 2) {
+        touchState.startX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+        touchState.startY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        touchState.lastX = touchState.startX;
+        touchState.lastY = touchState.startY;
+      }
+      updateTouchVisualizer(e);
+    }, { passive: false });
+
+    touchSurface.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      updateTouchVisualizer(e);
+
+      if (e.touches.length === 1) {
+        const curX = e.touches[0].clientX;
+        const curY = e.touches[0].clientY;
+        const dx = (curX - touchState.lastX) * state.touchSens;
+        const dy = (curY - touchState.lastY) * state.touchSens;
+        touchState.lastX = curX;
+        touchState.lastY = curY;
+
+        if (Math.hypot(curX - touchState.startX, curY - touchState.startY) > 8) {
+          touchState.hasMoved = true;
+        }
+
+        sendMotion(dx, dy);
+      } else if (e.touches.length === 2) {
+        // Two finger scroll
+        const curY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        const curX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+        const dy = (curY - touchState.lastY) * state.scrollSpeed * (state.invertScroll ? -1 : 1);
+        const dx = (curX - touchState.lastX) * state.scrollSpeed;
+        touchState.lastX = curX;
+        touchState.lastY = curY;
+
+        if (Math.abs(dy) > 1.5 || Math.abs(dx) > 1.5) {
+          touchState.hasMoved = true;
+          sendAction('scroll', dx, dy);
+        }
+      }
+    }, { passive: false });
+
+    touchSurface.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      updateTouchVisualizer(e);
+      const elapsed = performance.now() - touchState.startTime;
+
+      // Tap detection (under 250ms and small displacement)
+      if (!touchState.hasMoved && elapsed < 250) {
+        if (touchState.touchCount === 1) {
+          sendAction('click');
+          showToast('Left Click', '●');
+        } else if (touchState.touchCount === 2) {
+          sendAction('right_click');
+          showToast('Right Click', '○');
+        }
+      }
+      touchState.touchCount = e.touches.length;
+    }, { passive: false });
+
+    // Edge Scroll Strip
+    const scrollStrip = document.getElementById('scrollStrip');
+    const scrollThumb = document.getElementById('scrollThumb');
+    let lastStripY = 0;
+
+    scrollStrip.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      lastStripY = e.touches[0].clientY;
+      vibrate(10);
+    }, { passive: false });
+
+    scrollStrip.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      const curY = e.touches[0].clientY;
+      const deltaY = (curY - lastStripY);
+      lastStripY = curY;
+
+      const sign = state.invertScroll ? 1 : -1;
+      const scrollDelta = deltaY * 3.5 * state.scrollSpeed * sign;
+      sendAction('scroll', 0, scrollDelta);
+
+      // Move thumb visually
+      scrollThumb.style.transform = `translateY(${Math.max(-20, Math.min(20, deltaY * 2))}px)`;
+    }, { passive: false });
+
+    scrollStrip.addEventListener('touchend', () => {
+      scrollThumb.style.transform = 'translateY(0px)';
+    });
+
+    // Primary Mouse Buttons
+    document.getElementById('btnLeftClick').addEventListener('click', () => {
+      sendAction('click');
+    });
+
+    document.getElementById('btnRightClick').addEventListener('click', () => {
+      sendAction('right_click');
+    });
+
+    // =========================================================================
+    // TAB 2: AIR MOUSE (GYROSCOPE / DEVICEORIENTATION)
+    // =========================================================================
+    const btnClutch = document.getElementById('btnClutch');
+    const clutchStateText = document.getElementById('clutchStateText');
+    const valPitch = document.getElementById('valPitch');
+    const valYaw = document.getElementById('valYaw');
+    const valRoll = document.getElementById('valRoll');
+    const iosPermCard = document.getElementById('iosPermCard');
+    const btnRequestGyro = document.getElementById('btnRequestGyro');
+    const btnZeroGyro = document.getElementById('btnZeroGyro');
+    const btnToggleContinuous = document.getElementById('btnToggleContinuous');
+    const contIcon = document.getElementById('contIcon');
+    const contText = document.getElementById('contText');
+
+    // Check iOS permission requirement
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      iosPermCard.classList.remove('hidden');
+    } else {
+      iosPermCard.classList.add('hidden');
+      listenDeviceOrientation();
+    }
+
+    btnRequestGyro.addEventListener('click', async () => {
+      try {
+        const response = await DeviceOrientationEvent.requestPermission();
+        if (response === 'granted') {
+          iosPermCard.classList.add('hidden');
+          listenDeviceOrientation();
+          showToast('Motion Sensors Activated', '🎯');
+        } else {
+          alert('Permission to access motion sensors was denied.');
+        }
+      } catch (e) {
+        listenDeviceOrientation();
+        iosPermCard.classList.add('hidden');
+      }
+    });
+
+    function listenDeviceOrientation() {
+      window.addEventListener('deviceorientation', handleOrientation, true);
+    }
+
+    let prevOrient = null;
+    function handleOrientation(e) {
+      if (e.alpha === null && e.beta === null && e.gamma === null) return;
+      state.gyroSupported = true;
+
+      const pitch = (e.beta || 0);   // [-180, 180]
+      const roll = (e.gamma || 0);   // [-90, 90]
+      const yaw = (e.alpha || 0);    // [0, 360]
+
+      valPitch.textContent = pitch.toFixed(1) + '°';
+      valYaw.textContent = yaw.toFixed(1) + '°';
+      valRoll.textContent = roll.toFixed(1) + '°';
+
+      state.lastGyro = { pitch, yaw, roll };
+
+      if (prevOrient === null) {
+        prevOrient = { pitch, yaw, roll };
+        return;
+      }
+
+      // Air mouse steering active when clutch is held or continuous mode is on
+      const isSteering = state.clutchDown || state.continuousGyro;
+      if (isSteering) {
+        let dYaw = yaw - prevOrient.yaw;
+        // Wrap yaw boundary (0-360)
+        if (dYaw > 180) dYaw -= 360;
+        if (dYaw < -180) dYaw += 360;
+
+        let dPitch = pitch - prevOrient.pitch;
+        if (state.invertPitch) dPitch = -dPitch;
+
+        // Map phone tilt rates to cursor motion dx, dy
+        const dx = -dYaw * 12.0 * state.gyroSens;
+        const dy = dPitch * 12.0 * state.gyroSens;
+
+        if (Math.abs(dx) > 0.05 || Math.abs(dy) > 0.05) {
+          sendMotion(dx, dy, { pitch, yaw, roll });
+        }
+      }
+
+      prevOrient = { pitch, yaw, roll };
+    }
+
+    // Clutch Button handlers
+    function activateClutch() {
+      state.clutchDown = true;
+      btnClutch.classList.add('active');
+      clutchStateText.textContent = '⚡ Air Mouse Steering Active';
+      clutchStateText.style.color = 'var(--cyan)';
+      vibrate(20);
+    }
+
+    function releaseClutch() {
+      state.clutchDown = false;
+      btnClutch.classList.remove('active');
+      clutchStateText.textContent = 'Touch & hold to steer cursor with gyro';
+      clutchStateText.style.color = 'var(--text-muted)';
+      prevOrient = null;
+      vibrate(12);
+    }
+
+    btnClutch.addEventListener('touchstart', (e) => { e.preventDefault(); activateClutch(); }, { passive: false });
+    btnClutch.addEventListener('touchend', (e) => { e.preventDefault(); releaseClutch(); }, { passive: false });
+    btnClutch.addEventListener('mousedown', activateClutch);
+    btnClutch.addEventListener('mouseup', releaseClutch);
+    btnClutch.addEventListener('mouseleave', () => { if (state.clutchDown) releaseClutch(); });
+
+    // Zero Gyro Baseline
+    btnZeroGyro.addEventListener('click', () => {
+      prevOrient = null;
+      sendAction('recenter');
+      showToast('Orientation Re-centered', '🎯');
+    });
+
+    // Continuous Gyro Toggle
+    btnToggleContinuous.addEventListener('click', () => {
+      state.continuousGyro = !state.continuousGyro;
+      if (state.continuousGyro) {
+        contIcon.textContent = '🔒';
+        contText.textContent = 'Continuous: ON';
+        btnToggleContinuous.classList.add('pressed');
+        showToast('Continuous Air Mouse ON', '🔒');
+      } else {
+        contIcon.textContent = '🔓';
+        contText.textContent = 'Continuous: OFF';
+        btnToggleContinuous.classList.remove('pressed');
+        showToast('Continuous Air Mouse OFF', '🔓');
+      }
+    });
+
+    // =========================================================================
+    // TAB 3: QUICK ACTIONS
+    // =========================================================================
+    const actionButtons = document.querySelectorAll('.action-btn');
+    const btnDragToggle = document.getElementById('btnDragToggle');
+    const dragText = document.getElementById('dragText');
+    const pauseBtnText = document.getElementById('pauseBtnText');
+
+    function updateTrackingUI() {
+      pauseBtnText.textContent = state.isTracking ? 'Pause Tracking' : 'Resume Tracking';
+    }
+
+    actionButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const action = btn.dataset.action;
+        if (action === 'drag_toggle') {
+          state.isDragging = !state.isDragging;
+          if (state.isDragging) {
+            btnDragToggle.classList.add('active-lock');
+            dragText.textContent = 'Drag Lock: ON';
+            showToast('Drag Lock Engaged', '✊');
+          } else {
+            btnDragToggle.classList.remove('active-lock');
+            dragText.textContent = 'Drag Lock: OFF';
+            showToast('Drag Lock Released', '🖐');
+          }
+          sendAction('drag_toggle');
+        } else if (action === 'pause') {
+          state.isTracking = !state.isTracking;
+          updateTrackingUI();
+          sendAction(state.isTracking ? 'resume' : 'pause');
+          showToast(state.isTracking ? 'Tracking Resumed' : 'Tracking Paused', state.isTracking ? '▶' : '⏸');
+        } else {
+          sendAction(action);
+          showToast(btn.querySelector('span').textContent, '✓');
+        }
+      });
+    });
+
+    // =========================================================================
+    // TAB 4: SETTINGS & TUNING
+    // =========================================================================
+    const sliderTouchSens = document.getElementById('sliderTouchSens');
+    const lblTouchSens = document.getElementById('lblTouchSens');
+    sliderTouchSens.addEventListener('input', () => {
+      state.touchSens = parseFloat(sliderTouchSens.value);
+      lblTouchSens.textContent = state.touchSens.toFixed(1) + 'x';
+    });
+
+    const sliderGyroSens = document.getElementById('sliderGyroSens');
+    const lblGyroSens = document.getElementById('lblGyroSens');
+    sliderGyroSens.addEventListener('input', () => {
+      state.gyroSens = parseFloat(sliderGyroSens.value);
+      lblGyroSens.textContent = state.gyroSens.toFixed(1) + 'x';
+    });
+
+    const sliderScrollSpeed = document.getElementById('sliderScrollSpeed');
+    const lblScrollSpeed = document.getElementById('lblScrollSpeed');
+    sliderScrollSpeed.addEventListener('input', () => {
+      state.scrollSpeed = parseFloat(sliderScrollSpeed.value);
+      lblScrollSpeed.textContent = state.scrollSpeed.toFixed(1) + 'x';
+    });
+
+    document.getElementById('chkInvertScroll').addEventListener('change', (e) => {
+      state.invertScroll = e.target.checked;
+      showToast(state.invertScroll ? 'Scroll Inverted' : 'Scroll Normal');
+    });
+
+    document.getElementById('chkInvertPitch').addEventListener('change', (e) => {
+      state.invertPitch = e.target.checked;
+      showToast(state.invertPitch ? 'Pitch Inverted' : 'Pitch Normal');
+    });
+
+    document.getElementById('chkHaptics').addEventListener('change', (e) => {
+      state.haptics = e.target.checked;
+      if (state.haptics) vibrate(30);
+    });
+
+    // =========================================================================
+    // PWA & SERVICE WORKER REGISTRATION
+    // =========================================================================
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+
+    let deferredPrompt = null;
+    const btnInstallApp = document.getElementById('btnInstallApp');
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      btnInstallApp.style.display = 'flex';
+    });
+
+    btnInstallApp.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const choice = await deferredPrompt.userChoice;
+        if (choice.outcome === 'accepted') {
+          btnInstallApp.style.display = 'none';
+        }
+        deferredPrompt = null;
+      }
+    });
+
+    // Startup
+    initWebSocket();
+  </script>
+</body>
+</html>
