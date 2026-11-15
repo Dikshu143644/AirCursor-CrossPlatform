@@ -68,7 +68,9 @@ def enable_autostart(extra_args: str = "--tray") -> bool:
     cmd = f'"{pythonw}" "{main_py}" {extra_args}'.strip()
 
     try:
-        with winreg.OpenKey(
+        # Create the per-user Run key when it is absent (for example on
+        # fresh Windows profiles and hosted CI runners).
+        with winreg.CreateKeyEx(
             winreg.HKEY_CURRENT_USER, RUN_KEY_PATH, 0, winreg.KEY_SET_VALUE
         ) as key:
             winreg.SetValueEx(key, APP_VALUE_NAME, 0, winreg.REG_SZ, cmd)

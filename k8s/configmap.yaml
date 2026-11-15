@@ -12,7 +12,7 @@ data:
   NOVNC_PORT: "6080"
   MODE: "synthetic"
   AUTORUN: "true"
-  ENABLE_NOVNC: "true"
+  ENABLE_NOVNC: "false"
   SENSITIVITY: "1.0"
   DEADZONE: "3.0"
   DWELL_DURATION: "0.8"

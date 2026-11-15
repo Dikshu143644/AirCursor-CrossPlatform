@@ -35,7 +35,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     NOVNC_PORT=6080 \
     AUTORUN=true \
     MODE=synthetic \
-    ENABLE_NOVNC=true
+    ENABLE_NOVNC=false
 
 # Install Virtual Display Stack & Runtime Tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -61,13 +61,15 @@ WORKDIR /app
 COPY --chown=aircursor:aircursor --from=builder /build/aircursor_core /app/aircursor_core
 COPY --chown=aircursor:aircursor . /app/
 
+# Install the optional local vision runtime (no cloud service required).
+RUN python3 -m pip install --no-cache-dir '.[vision]'
+
 # Ensure entrypoint is executable
 RUN chmod +x /app/entrypoint.sh
 
-# Expose Web Remote & API (8765), OpenTrack/AirPods UDP (4242/udp), and noVNC (6080)
+# Expose authenticated Web Remote (8765) and OpenTrack/AirPods UDP (4242/udp). noVNC is opt-in.
 EXPOSE 8765
 EXPOSE 4242/udp
-EXPOSE 6080
 
 # Production Healthcheck targeting /status endpoint
 HEALTHCHECK --interval=15s --timeout=5s --start-period=5s --retries=3 \

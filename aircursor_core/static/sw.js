@@ -1,5 +1,5 @@
 // AirCursor Remote Service Worker (PWA Offline Cache)
-const CACHE_NAME = 'aircursor-remote-v1';
+const CACHE_NAME = 'aircursor-remote-v2-secure-pairing';
 const ASSETS_TO_CACHE = [
   '/',
   '/manifest.json'

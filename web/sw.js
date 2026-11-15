@@ -1,7 +1,7 @@
 // AirCursor PWA Offline Service Worker
 // Cache-first strategy for static assets, network-first for live telemetry/status.
 
-const CACHE_NAME = 'aircursor-v1.0.5';
+const CACHE_NAME = 'aircursor-v1.0.6-secure-pairing';
 const OFFLINE_URLS = [
   '/',
   '/index.html',
