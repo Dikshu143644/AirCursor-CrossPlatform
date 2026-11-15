@@ -4,14 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aircursor_core"
-version = "1.0.5"
-description = "Pure Python cross-platform Core Engine for AirCursor (Windows, Linux, Android)"
+version = "1.1.0"
+description = "Cross-platform motion and remote-control core for AirCursor"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
-authors = [
-    {name = "AirCursor Cross-Platform Team"}
-]
+authors = [{name = "AirCursor Cross-Platform Team"}]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
@@ -20,9 +18,12 @@ classifiers = [
 dependencies = []
 
 [project.optional-dependencies]
-dev = [
-    "pytest>=7.0",
-]
+dev = ["pytest>=7.0"]
+remote = ["aiohttp>=3.9,<4"]
+qr = ["qrcode>=7.4"]
 
 [tool.setuptools.packages.find]
 include = ["aircursor_core*"]
+
+[tool.setuptools.package-data]
+aircursor_core = ["static/*.html", "static/*.js", "static/*.json"]
