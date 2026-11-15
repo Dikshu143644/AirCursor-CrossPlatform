@@ -45,7 +45,7 @@ Install development dependencies and run platform-appropriate suites:
 ~~~bash
 python -m pip install -e ".[dev]"
 # Platform-neutral core, remote, deployment and CAD checks
-python -m unittest tests.test_core tests.test_web_remote tests.test_devops tests.test_cad_blender -v
+python -m unittest tests.test_core tests.test_web_remote tests.test_hardware_profiles tests.test_devops tests.test_cad_blender -v
 
 # Windows-only vision/controller and native integration checks (run on Windows)
 python -m unittest discover -s tests -v
