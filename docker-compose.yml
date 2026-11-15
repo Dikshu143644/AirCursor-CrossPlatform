@@ -8,15 +8,14 @@ services:
     restart: unless-stopped
     ports:
       - "8765:8765"        # Web Remote PWA & REST API
-      - "4242:4242/udp"    # OpenTrack / AirPods IMU UDP Stream
-      - "6080:6080"        # noVNC HTML5 Web Virtual Display
+      - "127.0.0.1:4242:4242/udp"  # Local OpenTrack / AirPods IMU UDP Stream
     environment:
       - AUTORUN=true
       - MODE=synthetic     # options: synthetic, airpods, camera
       - HTTP_PORT=8765
       - UDP_PORT=4242
       - NOVNC_PORT=6080
-      - ENABLE_NOVNC=true
+      - ENABLE_NOVNC=false
       - DISPLAY=:99
       - SCREEN_WIDTH=1920
       - SCREEN_HEIGHT=1080
