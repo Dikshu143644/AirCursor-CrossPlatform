@@ -44,7 +44,7 @@ Install development dependencies and run platform-appropriate suites:
 
 ~~~bash
 python -m pip install -e ".[dev]"
-python -m unittest tests.test_core tests.test_web_remote tests.test_devops tests.test_cad_blender -v
+python -m unittest tests.test_core tests.test_web_remote tests.test_vision_tracker tests.test_subjects tests.test_devops tests.test_cad_blender -v
 ~~~
 
 Windows-specific suites should be run on Windows; Linux input tests should be run on Linux. CI is configured for Python 3.10–3.12 on Ubuntu and Windows.
