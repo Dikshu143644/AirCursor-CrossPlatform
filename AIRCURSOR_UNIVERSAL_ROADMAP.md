@@ -1,29 +1,36 @@
-# AirCursor Universal Ecosystem — Build Roadmap
+# AirCursor Universal Ecosystem — Verified Build Roadmap
 
-This repository is an existing cross-platform AirCursor implementation. The 15 workstreams are expansion targets, not claims that every feature is already implemented.
+This roadmap distinguishes existing repository capabilities from work still required. "Present" means source code exists; it does not imply every device combination has been hardware-validated.
 
-## Delivery sequence
-1. Foundation: source arbitration, authenticated local remote protocol, pairing and protocol tests.
-2. Vision: optional local camera dependencies, face/nose mapping, hand gestures, privacy indicator and camera-off control.
-3. Desktop integration: wire arbitration and remote events into existing Windows/Linux/macOS input adapters; add safe startup and tray controls.
-4. Mobile: installable PWA, orientation permission flow, gyroscope air-mouse and Android companion integration.
-5. Deployment: offline dependency bundle, Docker image and headless virtual-display profile; Kubernetes manifests for supported headless deployments.
-6. CAD: Blender 5.1 parametric generators and five concept exports. These are prototypes, not production-ready hardware.
-7. Validation: CI matrix, hardware-in-the-loop instructions and platform-specific limitations.
+## Existing capabilities discovered on the main branch
 
-## Protocol safety
-- Clients authenticate with a random bearer token in the first WebSocket message.
-- Pairing URLs put the token in the URL fragment, which browsers do not include in HTTP requests.
-- Pointer coordinates are normalized to 0..1 and validated server-side.
-- The gateway delegates OS input injection to a platform adapter supplied by the host app.
-- Bind the gateway to a trusted LAN only. Do not expose port 8765 to the public internet.
+| Workstream | Existing implementation | Remaining validation / gaps |
+|---|---|---|
+| Core motion engine | Motion differentiation, pointer mapping/smoothing, gestures, dwell | Calibration and multi-device regression |
+| Input arbitration | `aircursor_core/arbiter.py` switches between Bluetooth and vision | Add source-health edge-case tests |
+| Webcam vision | `vision_tracker.py` uses local OpenCV face/nose estimation and hand-contour gesture classification | Improve tracking robustness; evaluate varied lighting/cameras; MediaPipe can be an optional future backend |
+| Mobile web remote | `web_remote_server.py` provides stdlib HTTP + RFC 6455 WebSocket | Validate real device/browser combinations |
+| Mobile PWA | `static/remote.html` includes touchpad, gyroscope, clutch, haptics, settings and install flow | Verify iOS permission UX and Android browser behavior |
+| Bluetooth | Windows OpenTrack/receiver and Linux BlueZ components | Hardware matrix and reconnection soak tests |
+| Windows | Controller, tray, hotkeys, autostart and Win32 input | Verify start-on-launch policy and signed installer |
+| Android | Native companion project and accessibility service | Build/sign APK and test API-level compatibility |
+| Linux | BlueZ and uinput input stack | Validate permissions, Wayland/X11 and supported distributions |
+| QR pairing | Pure-Python QR engine and pairing helper | Validate LAN isolation and pairing lifecycle |
+| Test suites | Core, subject simulation, Windows and Linux tests | Run tests on matching operating-system runners |
 
-## Implemented foundation slice
-- aircursor_core/arbiter.py: priority-based source selection and stale-heartbeat failover.
-- aircursor_core/web_remote_server.py: optional aiohttp HTTP/WebSocket gateway and command validation.
-- aircursor_core/static/: initial touchpad web client.
-- aircursor_core/pairing_qr.py: pairing URL and optional terminal QR helper.
-- tests/test_universal_ecosystem.py: arbitration and pairing unit tests.
+## Remaining expansion work
 
-## Not yet implemented
-Camera inference, gyroscope sensor bridge, OS cursor adapter wiring, native Android changes, Bluetooth broker changes, Docker/Kubernetes packaging, offline dependency bundling, Blender CAD generation and full end-to-end tests.
+1. **Cross-platform quality:** complete source-arbitration and vision regression tests; run Windows and Linux suites on their native CI runners; add macOS support only after a native input backend is available.
+2. **Secure remote pairing:** add pairing authorization / expiry, safe binding defaults, origin validation, and explicit remote-control enablement before exposing a LAN endpoint.
+3. **Deployment:** add Docker image and Compose profile for headless/synthetic operation; document that container cursor injection does not automatically control the host desktop.
+4. **Kubernetes:** add headless deployment/service manifests and optional ingress guidance. Hardware access via host devices must remain opt-in and tightly scoped.
+5. **Offline distribution:** create an offline wheelhouse/bundle and verify a clean install without network access.
+6. **Blender CAD:** create five parametric concept models and exports. These are ergonomic prototypes, not production-certified hardware.
+
+## Safety and implementation notes
+
+- Camera processing is local; do not add cloud inference to the default path.
+- The mobile remote controls a host input device and must not be exposed to the public internet without a secure authenticated transport.
+- LAN pairing should use explicit user approval, a short-lived token, and a visible active-remote indicator.
+- Docker/Xvfb/noVNC is a virtual desktop for testing and remote visualization. It is not a magic bridge into the physical host desktop.
+- Do not grant privileged container mode by default. Linux uinput access should be a documented, opt-in device mapping with host permissions.
