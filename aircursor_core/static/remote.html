@@ -972,6 +972,7 @@
     const state = {
       ws: null,
       wsConnected: false,
+      accessToken: null,
       isDragging: false,
       isTracking: true,
       continuousGyro: false,
@@ -988,6 +989,18 @@
       lastPing: 0,
       roundtripMs: 0
     };
+
+    // The host generates a random pairing token and embeds it in the QR URL fragment.
+    // Fragments are never sent in HTTP requests or Referer headers.
+    const pairingParams = new URLSearchParams(location.hash.replace(/^#/, ''));
+    state.accessToken = pairingParams.get('token') || sessionStorage.getItem('aircursor-access-token');
+    if (!state.accessToken) {
+      state.accessToken = window.prompt('Enter the AirCursor pairing token shown on the host computer:') || '';
+    }
+    if (state.accessToken) {
+      sessionStorage.setItem('aircursor-access-token', state.accessToken);
+      if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+    }
 
     // DOM Elements
     const statusDot = document.getElementById('statusDot');
@@ -1026,6 +1039,11 @@
     // =========================================================================
 
     function initWebSocket() {
+      if (!state.accessToken) {
+        statusDot.className = 'status-dot disconnected';
+        statusText.textContent = 'Pairing token required';
+        return;
+      }
       const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${proto}//${location.host}/ws`;
 
@@ -1033,15 +1051,21 @@
         state.ws = new WebSocket(wsUrl);
 
         state.ws.onopen = () => {
-          state.wsConnected = true;
-          statusDot.className = 'status-dot connected';
-          statusText.textContent = 'Connected (WS)';
-          showToast('WebSocket connected', '⚡');
+          // The first application frame must authenticate before control is enabled.
+          state.ws.send(JSON.stringify({ type: 'auth', token: state.accessToken }));
+          statusText.textContent = 'Authenticating…';
         };
 
         state.ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
+            if (data.type === 'ready') {
+              state.wsConnected = true;
+              statusDot.className = 'status-dot connected';
+              statusText.textContent = 'Connected (Secure)';
+              showToast('Secure remote connected', '🔒');
+              return;
+            }
             if (data.type === 'pong' || data.type === 'status') {
               if (data.ts) {
                 state.roundtripMs = Math.round(performance.now() - data.ts);
@@ -1060,7 +1084,7 @@
           statusDot.className = 'status-dot';
           statusText.textContent = 'Fallback (HTTP)';
           // Reconnect after delay
-          setTimeout(initWebSocket, 2500);
+          if (state.accessToken) setTimeout(initWebSocket, 2500);
         };
 
         state.ws.onerror = () => {
@@ -1072,13 +1096,17 @@
         state.wsConnected = false;
         statusDot.className = 'status-dot';
         statusText.textContent = 'Fallback (HTTP)';
-        setTimeout(initWebSocket, 4000);
+        if (state.accessToken) setTimeout(initWebSocket, 4000);
       }
     }
 
     // Dispatch Action (WS or POST)
     function sendAction(action, dx = 0.0, dy = 0.0) {
       vibrate(15);
+      if (!state.accessToken) {
+        showToast('Pair this device with the host QR code', '🔒');
+        return;
+      }
       const payload = { action, dx: Number(dx), dy: Number(dy) };
 
       if (state.wsConnected && state.ws.readyState === WebSocket.OPEN) {
@@ -1086,7 +1114,10 @@
       } else {
         fetch('/api/action', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + state.accessToken
+          },
           body: JSON.stringify(payload)
         }).catch(() => {});
       }
@@ -1095,6 +1126,7 @@
     // Dispatch Motion (WS or POST with rate limiting)
     let lastHttpMotionTime = 0;
     function sendMotion(dx, dy, gyro = null) {
+      if (!state.accessToken) return;
       const payload = {
         source: 'remote',
         dx: Number(dx || 0),
@@ -1115,7 +1147,10 @@
           lastHttpMotionTime = now;
           fetch('/api/motion', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + state.accessToken
+            },
             body: JSON.stringify(payload)
           }).catch(() => {});
         }
