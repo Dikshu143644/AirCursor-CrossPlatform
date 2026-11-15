@@ -235,6 +235,23 @@ class TestWebRemoteServer(unittest.TestCase):
             self.assertIn("qr_svg", data)
             self.assertTrue(len(data["qr_ascii"]) > 0)
             self.assertTrue("<svg" in data["qr_svg"])
+            self.assertIn("#token=", data["url"])
+            self.assertIn(self.server.access_token, data["url"])
+
+    def test_control_endpoints_require_bearer_token(self):
+        """Unauthenticated control requests are rejected before dispatch."""
+        dispatched = []
+        self.server.set_action_callback(lambda *args: dispatched.append(args))
+        request = urllib.request.Request(
+            f"{self.base_url}/api/action",
+            data=json.dumps({"action": "left_click"}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with self.assertRaises(urllib.error.HTTPError) as caught:
+            urllib.request.urlopen(request, timeout=3.0)
+        self.assertEqual(caught.exception.code, 401)
+        self.assertEqual(dispatched, [])
 
     def test_post_action_endpoint(self):
         """POST /api/action dispatches actions and returns JSON."""
@@ -260,7 +277,10 @@ class TestWebRemoteServer(unittest.TestCase):
             req = urllib.request.Request(
                 f"{self.base_url}/api/action",
                 data=payload,
-                headers={"Content-Type": "application/json"},
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + self.server.access_token,
+                },
                 method="POST",
             )
             with urllib.request.urlopen(req, timeout=3.0) as res:
@@ -296,7 +316,10 @@ class TestWebRemoteServer(unittest.TestCase):
         req = urllib.request.Request(
             f"{self.base_url}/api/motion",
             data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + self.server.access_token,
+            },
             method="POST",
         )
         with urllib.request.urlopen(req, timeout=3.0) as res:
@@ -321,7 +344,7 @@ class TestWebRemoteServer(unittest.TestCase):
         req = urllib.request.Request(f"{self.base_url}/api/action", method="OPTIONS")
         with urllib.request.urlopen(req, timeout=3.0) as res:
             self.assertEqual(res.status, 204)
-            self.assertEqual(res.headers.get("Access-Control-Allow-Origin"), "*")
+            self.assertIsNone(res.headers.get("Access-Control-Allow-Origin"))
             self.assertIn("POST", res.headers.get("Access-Control-Allow-Methods", ""))
 
     def test_websocket_stream_and_actions(self):
@@ -350,9 +373,9 @@ class TestWebRemoteServer(unittest.TestCase):
         self.assertIn("101 Switching Protocols", response)
         self.assertIn(f"Sec-WebSocket-Accept: {expected_accept}", response)
 
-        # Connection count should now be 1
+        # The socket is not registered as a control client until it authenticates.
         time.sleep(0.05)
-        self.assertEqual(self.server.connection_count, 1)
+        self.assertEqual(self.server.connection_count, 0)
 
         # Helper to send masked client frame
         def send_client_frame(text: str):
@@ -365,6 +388,31 @@ class TestWebRemoteServer(unittest.TestCase):
             else:
                 hdr = bytes([0x81, 0x80 | 126]) + struct.pack("!H", plen)
             sock.sendall(hdr + mask_key + bytes(masked))
+
+        def read_server_frame():
+            def recv_exact(size):
+                data = bytearray()
+                while len(data) < size:
+                    part = sock.recv(size - len(data))
+                    if not part:
+                        raise ConnectionError("WebSocket closed")
+                    data.extend(part)
+                return bytes(data)
+            first, second = recv_exact(2)
+            length = second & 0x7F
+            if length == 126:
+                length = struct.unpack("!H", recv_exact(2))[0]
+            elif length == 127:
+                length = struct.unpack("!Q", recv_exact(8))[0]
+            return first & 0x0F, recv_exact(length)
+
+        # Authenticate as the very first WebSocket application frame.
+        send_client_frame(json.dumps({"type": "auth", "token": self.server.access_token}))
+        opcode, ready_payload = read_server_frame()
+        self.assertEqual(opcode, 0x1)
+        self.assertEqual(json.loads(ready_payload.decode("utf-8"))["type"], "ready")
+        time.sleep(0.05)
+        self.assertEqual(self.server.connection_count, 1)
 
         # Test action dispatch over WebSocket
         ws_actions = []
