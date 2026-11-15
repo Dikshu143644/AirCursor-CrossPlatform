@@ -9,9 +9,13 @@ from __future__ import annotations
 
 import http.server
 import json
+import os
+from pathlib import Path
 import socketserver
 import threading
 from typing import TYPE_CHECKING, Any, Dict, Optional
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
 
 if TYPE_CHECKING:
     from app_controller import AppController
@@ -53,6 +57,30 @@ class WebRemoteServer:
                 path = self.path.split("?")[0]
                 if path in ("/api/status", "/status"):
                     self._send_json(self._get_status())
+                elif path.startswith("/cad/"):
+                    rel = path[len("/cad/"):].lstrip("/")
+                    target = ROOT_DIR / "cad" / rel
+                    if target.exists() and target.is_file() and ".." not in Path(rel).parts:
+                        suffix = target.suffix.lower()
+                        mime = {
+                            ".html": "text/html; charset=utf-8",
+                            ".css": "text/css; charset=utf-8",
+                            ".js": "application/javascript; charset=utf-8",
+                            ".png": "image/png",
+                            ".glb": "model/gltf-binary",
+                            ".obj": "text/plain",
+                            ".stl": "application/sla",
+                            ".md": "text/markdown; charset=utf-8",
+                        }.get(suffix, "application/octet-stream")
+                        data = target.read_bytes()
+                        self.send_response(200)
+                        self.send_header("Content-Type", mime)
+                        self.send_header("Content-Length", str(len(data)))
+                        self.send_header("Access-Control-Allow-Origin", "*")
+                        self.end_headers()
+                        self.wfile.write(data)
+                    else:
+                        self.send_error(404, "CAD Asset Not Found")
                 elif path in ("/", "/index.html"):
                     self._send_html(self._render_remote_html())
                 else:
@@ -60,7 +88,23 @@ class WebRemoteServer:
 
             def do_POST(self) -> None:
                 path = self.path.split("?")[0]
-                if path in ("/api/camera/toggle", "/camera/toggle"):
+                try:
+                    content_len = int(self.headers.get("Content-Length", 0))
+                    body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                    data = json.loads(body.decode("utf-8")) if body else {}
+                except Exception:
+                    data = {}
+
+                if path in ("/api/action", "/action"):
+                    action = str(data.get("action", "")).strip().lower()
+                    dx = float(data.get("dx", 0.0))
+                    dy = float(data.get("dy", 0.0))
+                    handled = controller.handle_remote_action(action, dx=dx, dy=dy)
+                    self._send_json({"success": handled, "action": action, **self._get_status()})
+                elif path in ("/api/motion", "/motion"):
+                    handled = controller.handle_remote_motion(data)
+                    self._send_json({"success": handled, **self._get_status()})
+                elif path in ("/api/camera/toggle", "/camera/toggle"):
                     new_state = controller.toggle_camera()
                     self._send_json({"success": True, "camera_active": new_state, **self._get_status()})
                 elif path in ("/api/tracking/toggle", "/tracking/toggle"):
@@ -158,6 +202,9 @@ class WebRemoteServer:
             Yaw: <span id="telYaw">0°</span> | Pitch: <span id="telPitch">0°</span><br>
             FPS: <span id="telFps">0</span>
         </div>
+        <a href="/cad/remote_showcase.html" target="_blank" style="display:block; margin-top:14px; text-decoration:none; background:#372714; color:#fdba74; padding:10px; border-radius:8px; font-weight:bold; border:1px solid #7c2d12;">
+            🌐 3D Physical Remotes Showcase (5 Products)
+        </a>
     </div>
     <script>
         async function fetchStatus() {
