@@ -111,12 +111,12 @@ def verify_python_core_offline_readiness() -> List[str]:
     """Ensures aircursor_core and server have no mandatory external PyPI dependencies."""
     import ast
     issues = []
-    stdlib_modules = set(sys.builtin_module_names) | {
-        "__future__", "argparse", "ast", "asyncio", "base64", "collections", "copy",
-        "dataclasses", "datetime", "enum", "hashlib", "http", "json", "logging", "math",
-        "mimetypes", "os", "pathlib", "queue", "re", "select", "shutil", "signal",
-        "socket", "struct", "sys", "threading", "time", "typing", "unittest", "urllib",
-        "zipfile", "zlib"
+    # Python 3.10+ exposes the complete standard-library top-level module
+    # list. Include it rather than maintaining a brittle hand-written subset:
+    # newly used stdlib modules (hmac, ipaddress, secrets, etc.) must not be
+    # mistaken for third-party PyPI dependencies by the offline verifier.
+    stdlib_modules = set(sys.builtin_module_names) | set(sys.stdlib_module_names) | {
+        "__future__"
     }
 
     core_files = list((ROOT_DIR / "aircursor_core").glob("*.py"))
