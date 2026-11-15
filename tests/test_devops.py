@@ -393,7 +393,10 @@ class TestWebRemoteAndStatusAPI(unittest.TestCase):
         post_req = urllib.request.Request(
             url,
             data=json.dumps({"sensitivity": 2.4}).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + self.server.access_token,
+            },
             method="POST",
         )
         with urllib.request.urlopen(post_req, timeout=3.0) as resp:
@@ -401,13 +404,29 @@ class TestWebRemoteAndStatusAPI(unittest.TestCase):
             updated = json.loads(resp.read().decode("utf-8"))
             self.assertEqual(updated["pointer"]["sensitivity"], 2.4)
 
+    def test_unauthenticated_action_is_rejected(self):
+        """The headless API must reject commands without a bearer token."""
+        url = f"http://127.0.0.1:{self.test_http_port}/api/action"
+        request = urllib.request.Request(
+            url,
+            data=json.dumps({"action": "recenter"}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with self.assertRaises(urllib.error.HTTPError) as caught:
+            urllib.request.urlopen(request, timeout=3.0)
+        self.assertEqual(caught.exception.code, 401)
+
     def test_action_api(self):
         """Tests POST /api/action for recenter and toggle_tracking."""
         url = f"http://127.0.0.1:{self.test_http_port}/api/action"
         post_req = urllib.request.Request(
             url,
             data=json.dumps({"action": "recenter"}).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + self.server.access_token,
+            },
             method="POST",
         )
         with urllib.request.urlopen(post_req, timeout=3.0) as resp:
