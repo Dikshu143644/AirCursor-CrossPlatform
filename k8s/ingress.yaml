@@ -1,0 +1,31 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aircursor-ingress
+  labels:
+    app.kubernetes.io/name: aircursor
+    app.kubernetes.io/part-of: aircursor-suite
+    app.kubernetes.io/component: ingress
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/websocket-services: "aircursor-service"
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: aircursor-service
+                port:
+                  number: 8765
+          - path: /vnc
+            pathType: Prefix
+            backend:
+              service:
+                name: aircursor-service
+                port:
+                  number: 6080

@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aircursor-config
+  labels:
+    app.kubernetes.io/name: aircursor
+    app.kubernetes.io/part-of: aircursor-suite
+    app.kubernetes.io/component: config
+data:
+  HTTP_PORT: "8765"
+  UDP_PORT: "4242"
+  NOVNC_PORT: "6080"
+  MODE: "synthetic"
+  AUTORUN: "true"
+  ENABLE_NOVNC: "true"
+  SENSITIVITY: "1.0"
+  DEADZONE: "3.0"
+  DWELL_DURATION: "0.8"
+  ENABLE_SMART_DWELL: "true"
+  ENABLE_NOD: "true"
+  ENABLE_SHAKE: "true"
+  ENABLE_TILT: "true"
+  settings.json: |
+    {
+      "pointer": {
+        "sensitivity": 1.0,
+        "deadzone": 3.0,
+        "acceleration": 1.5,
+        "smoothing": 0.15,
+        "scroll_speed": 1.0,
+        "invert_scroll": false
+      },
+      "dwell": {
+        "enabled": true,
+        "duration": 0.8,
+        "radius": 16.0,
+        "smart": true
+      },
+      "gestures": {
+        "nod_threshold": 6.5,
+        "shake_threshold": 8.0,
+        "tilt_threshold": 22.0
+      },
+      "actions": {
+        "nod": "left_click",
+        "shake": "toggle_tracking",
+        "tilt_left": "browser_back",
+        "tilt_right": "browser_forward",
+        "dwell": "left_click"
+      }
+    }

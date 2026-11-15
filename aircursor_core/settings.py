@@ -244,6 +244,77 @@ class DwellSettings:
 
 
 @dataclass
+class WebRemoteSettings:
+    """Settings governing the universal Web Remote & WebSocket server."""
+
+    enabled: bool = True
+    port: int = 8765
+    bind: str = "0.0.0.0"
+    allow_lan: bool = True
+    gyro_sensitivity: float = 1.0
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "enabled": self.enabled,
+            "port": self.port,
+            "bind": self.bind,
+            "allowLan": self.allow_lan,
+            "gyroSensitivity": self.gyro_sensitivity,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> WebRemoteSettings:
+        default = cls()
+        if not isinstance(data, dict):
+            return default
+        return cls(
+            enabled=_get_lenient(data, ["enabled"], default.enabled, bool),
+            port=_get_lenient(data, ["port"], default.port, int),
+            bind=_get_lenient(data, ["bind"], default.bind, str),
+            allow_lan=_get_lenient(data, ["allowLan", "allow_lan"], default.allow_lan, bool),
+            gyro_sensitivity=_get_lenient(
+                data, ["gyroSensitivity", "gyro_sensitivity"], default.gyro_sensitivity, float
+            ),
+        )
+
+
+@dataclass
+class VisionSettings:
+    """Settings governing the Webcam Vision and Gesture tracking engine."""
+
+    enabled: bool = False
+    camera_index: int = 0
+    auto_fallback: bool = True
+    face_tracking: bool = True
+    hand_gestures: bool = True
+    max_fps: int = 30
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "enabled": self.enabled,
+            "cameraIndex": self.camera_index,
+            "autoFallback": self.auto_fallback,
+            "faceTracking": self.face_tracking,
+            "handGestures": self.hand_gestures,
+            "maxFps": self.max_fps,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> VisionSettings:
+        default = cls()
+        if not isinstance(data, dict):
+            return default
+        return cls(
+            enabled=_get_lenient(data, ["enabled"], default.enabled, bool),
+            camera_index=_get_lenient(data, ["cameraIndex", "camera_index"], default.camera_index, int),
+            auto_fallback=_get_lenient(data, ["autoFallback", "auto_fallback"], default.auto_fallback, bool),
+            face_tracking=_get_lenient(data, ["faceTracking", "face_tracking"], default.face_tracking, bool),
+            hand_gestures=_get_lenient(data, ["handGestures", "hand_gestures"], default.hand_gestures, bool),
+            max_fps=_get_lenient(data, ["maxFps", "max_fps"], default.max_fps, int),
+        )
+
+
+@dataclass
 class AppSettings:
     """Top-level configuration container for AirCursor."""
 
@@ -263,6 +334,8 @@ class AppSettings:
     has_completed_onboarding: bool = False
     check_for_updates: bool = True
     skipped_update_version: Optional[str] = None
+    remote: WebRemoteSettings = field(default_factory=WebRemoteSettings)
+    vision: VisionSettings = field(default_factory=VisionSettings)
 
     # CamelCase property aliases matching Swift API
     @property
@@ -359,6 +432,8 @@ class AppSettings:
             "hasCompletedOnboarding": self.has_completed_onboarding,
             "checkForUpdates": self.check_for_updates,
             "skippedUpdateVersion": self.skipped_update_version,
+            "remote": self.remote.to_dict(),
+            "vision": self.vision.to_dict(),
         }
 
     def to_json(self) -> str:
@@ -376,6 +451,8 @@ class AppSettings:
         gestures_data = data.get("gestures", {})
         dwell_data = data.get("dwell", {})
         actions_data = data.get("actions", {})
+        remote_data = data.get("remote", {})
+        vision_data = data.get("vision", {})
 
         return cls(
             version=version_val,
@@ -385,6 +462,8 @@ class AppSettings:
             else default.gestures,
             dwell=DwellSettings.from_dict(dwell_data) if isinstance(dwell_data, dict) else default.dwell,
             actions=ActionMap.from_dict(actions_data) if isinstance(actions_data, dict) else default.actions,
+            remote=WebRemoteSettings.from_dict(remote_data) if isinstance(remote_data, dict) else default.remote,
+            vision=VisionSettings.from_dict(vision_data) if isinstance(vision_data, dict) else default.vision,
             stem_controls_enabled=_get_lenient(
                 data, ["stemControlsEnabled", "stem_controls_enabled"], default.stem_controls_enabled, bool
             ),

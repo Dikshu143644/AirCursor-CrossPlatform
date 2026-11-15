@@ -1,0 +1,22 @@
+{
+  "name": "AirCursor Mobile Remote",
+  "short_name": "AirCursor",
+  "description": "Futuristic Air Mouse & Touchpad Remote for AirCursor",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#060913",
+  "theme_color": "#060913",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192' width='192' height='192'%3E%3Crect width='100%25' height='100%25' fill='%23060913' rx='36'/%3E%3Ccircle cx='96' cy='96' r='60' fill='none' stroke='%2300f0ff' stroke-width='8'/%3E%3Ccircle cx='96' cy='96' r='24' fill='%2300f0ff'/%3E%3Cpath d='M96 20v24M96 148v24M20 96h24M148 96h24' stroke='%2338bdf8' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512' width='512' height='512'%3E%3Crect width='100%25' height='100%25' fill='%23060913' rx='96'/%3E%3Ccircle cx='256' cy='256' r='160' fill='none' stroke='%2300f0ff' stroke-width='18'/%3E%3Ccircle cx='256' cy='256' r='64' fill='%2300f0ff'/%3E%3Cpath d='M256 50v60M256 402v60M50 256h60M402 256h60' stroke='%2338bdf8' stroke-width='16' stroke-linecap='round'/%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

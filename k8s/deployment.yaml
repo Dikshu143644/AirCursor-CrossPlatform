@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aircursor
+  labels:
+    app.kubernetes.io/name: aircursor
+    app.kubernetes.io/part-of: aircursor-suite
+    app.kubernetes.io/component: core-daemon
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: aircursor
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: aircursor
+        app.kubernetes.io/part-of: aircursor-suite
+        app.kubernetes.io/component: core-daemon
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: aircursor
+          image: aircursor:latest
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: aircursor-config
+          ports:
+            - name: http-web
+              containerPort: 8765
+              protocol: TCP
+            - name: udp-sensor
+              containerPort: 4242
+              protocol: UDP
+            - name: novnc-display
+              containerPort: 6080
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /status
+              port: 8765
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /status
+              port: 8765
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 2
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: config-volume
+              mountPath: /app/config
+      volumes:
+        - name: config-volume
+          configMap:
+            name: aircursor-config

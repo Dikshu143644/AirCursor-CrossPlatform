@@ -575,10 +575,26 @@ class ControlCenterGUI:
         btn_frame = tk.Frame(main_frame, bg=self.c_bg)
         btn_frame.pack(fill=tk.X, pady=(0, 8))
 
+        self.camera_btn = tk.Button(
+            btn_frame,
+            text="📷 Webcam Vision",
+            font=("Segoe UI", 9, "bold"),
+            bg="#2e1065",
+            fg="#c4b5fd",
+            activebackground="#581c87",
+            activeforeground="#ffffff",
+            relief="flat",
+            bd=0,
+            cursor="hand2",
+            pady=8,
+            command=self._on_toggle_camera,
+        )
+        self.camera_btn.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 4))
+
         self.recenter_btn = tk.Button(
             btn_frame,
-            text="🎯 Recenter Cursor (Ctrl+Alt+C)",
-            font=("Segoe UI", 10, "bold"),
+            text="🎯 Recenter (Ctrl+Alt+C)",
+            font=("Segoe UI", 9, "bold"),
             bg="#2d2d35",
             fg=self.c_text,
             activebackground="#3e3e48",
@@ -589,12 +605,12 @@ class ControlCenterGUI:
             pady=8,
             command=self._on_recenter,
         )
-        self.recenter_btn.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 6))
+        self.recenter_btn.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(4, 4))
 
         self.save_btn = tk.Button(
             btn_frame,
             text="⚙️ Save Settings",
-            font=("Segoe UI", 10, "bold"),
+            font=("Segoe UI", 9, "bold"),
             bg="#1e3a5f",
             fg="#93c5fd",
             activebackground="#2563eb",
@@ -605,7 +621,7 @@ class ControlCenterGUI:
             pady=8,
             command=self._on_save_settings,
         )
-        self.save_btn.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=(6, 0))
+        self.save_btn.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=(4, 0))
 
         # Bottom info bar
         bottom_frame = tk.Frame(main_frame, bg=self.c_bg)
@@ -723,10 +739,12 @@ class ControlCenterGUI:
             # Streaming indicator
             if self.controller.use_synthetic:
                 self.stream_status_lbl.config(text="(Synthetic Sim)", fg="#a78bfa")
+            elif self.controller.arbiter.active_source.value == "vision":
+                self.stream_status_lbl.config(text="📷 Vision Tracking", fg="#c084fc")
             elif self.controller.motion_streaming:
-                self.stream_status_lbl.config(text="● Streaming", fg=self.c_green)
+                self.stream_status_lbl.config(text="● Streaming (AirPods)", fg=self.c_green)
             else:
-                self.stream_status_lbl.config(text="Waiting for UDP...", fg=self.c_text_dim)
+                self.stream_status_lbl.config(text="Waiting for Sensors...", fg=self.c_text_dim)
 
             # Live telemetry angles
             pitch = self.controller.live_pitch
@@ -829,6 +847,22 @@ class ControlCenterGUI:
                     text="✓ AirCursor autostart disabled.", fg=self.c_text_muted
                 )
         self.root.after(4000, self._reset_status_bar)
+
+    def _on_toggle_camera(self) -> None:
+        """Toggles camera vision tracking on / off."""
+        is_active = self.controller.toggle_camera()
+        if is_active:
+            self.camera_btn.config(bg="#166534", fg="#86efac", text="📷 Camera: ON")
+            self.status_msg_lbl.config(
+                text="✓ Vision Camera tracking active. Face movements control cursor.",
+                fg=self.c_green,
+            )
+        else:
+            self.camera_btn.config(bg="#2e1065", fg="#c4b5fd", text="📷 Webcam Vision")
+            self.status_msg_lbl.config(
+                text="Vision Camera tracking stopped.", fg=self.c_text_muted
+            )
+        self.root.after(3500, self._reset_status_bar)
 
     def _on_save_settings(self) -> None:
         """Saves current settings to disk config file."""

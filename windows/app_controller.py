@@ -28,12 +28,20 @@ from typing import Callable, Optional, Tuple
 # Import Core modules
 sys.path.insert(0, r"c:\Users\omkar\TV\AirCursor_CrossPlatform")
 from aircursor_core.actions import ActionMap, PointerAction, Trigger
+from aircursor_core.arbiter import FallbackPolicy, InputArbiter, TrackingSource
 from aircursor_core.dwell import DwellDetector, DwellUpdate
 from aircursor_core.gestures import GestureDetector, HeadGesture
 from aircursor_core.math_util import AngleMath, Vec2
 from aircursor_core.motion import AngularRates, MotionDifferentiator, MotionSample
 from aircursor_core.pointer import CursorHistory, PointerMapper, PointerSmoother
 from aircursor_core.settings import AppSettings
+from aircursor_core.vision_tracker import (
+    HandGesture,
+    VisionFrameResult,
+    VisionTracker,
+    VisionTrackerSettings,
+    VisionTrackerState,
+)
 
 # Import Windows Platform modules
 sys.path.insert(0, r"c:\Users\omkar\TV\AirCursor_CrossPlatform\windows")
@@ -47,6 +55,7 @@ from sensor_receiver import (
 )
 from stem_listener import StemListener
 from hotkey_manager import HotKeyManager
+from web_remote import WebRemoteServer
 
 
 class TrackingMode(str, enum.Enum):
@@ -65,6 +74,10 @@ class AppController:
         udp_host: str = "0.0.0.0",
         show_overlay: bool = True,
         enable_stem_hook: bool = True,
+        enable_camera: Optional[bool] = None,
+        camera_index: Optional[int] = None,
+        enable_web_remote: bool = True,
+        web_remote_port: Optional[int] = None,
     ):
         # Standby State Machine: default dwell clicking to False unless explicitly configured
         if settings is None:
@@ -79,8 +92,42 @@ class AppController:
         self.show_overlay: bool = show_overlay
         self.enable_stem_hook: bool = enable_stem_hook
 
-        # State: Standby State Machine starts paused by default
-        self.tracking_enabled: bool = False
+        # Apply camera & remote overrides if specified
+        if enable_camera is not None:
+            self.settings.vision.enabled = enable_camera
+        if camera_index is not None:
+            self.settings.vision.camera_index = camera_index
+        if web_remote_port is not None:
+            self.settings.remote.port = web_remote_port
+
+        self.enable_camera: bool = bool(self.settings.vision.enabled)
+
+        # Multi-Source Input Arbiter
+        initial_source = (
+            TrackingSource.SYNTHETIC
+            if self.use_synthetic
+            else (
+                TrackingSource.VISION
+                if (self.enable_camera and not self.use_synthetic)
+                else TrackingSource.BLUETOOTH
+            )
+        )
+        self.arbiter = InputArbiter(
+            initial_source=initial_source,
+            fallback_policy=(
+                FallbackPolicy.AUTO_TRANSITION
+                if self.settings.vision.auto_fallback
+                else FallbackPolicy.SUGGEST_ONLY
+            ),
+            bluetooth_timeout=3.0,
+            camera_available=False,
+            camera_enabled=self.settings.vision.enabled,
+            on_source_changed=self._on_tracking_source_changed,
+            on_fallback_suggested=self._on_fallback_suggested,
+        )
+
+        # State: Start active by default so cursor is immediately controllable
+        self.tracking_enabled: bool = True
         self.mode: TrackingMode = TrackingMode.POINTER
         self.is_dragging: bool = False
         self.motion_streaming: bool = False
@@ -119,6 +166,22 @@ class AppController:
         self.udp_receiver: Optional[OpenTrackReceiver] = None
         self.synthetic_generator: Optional[SyntheticSensorGenerator] = None
 
+        # Vision Tracker subsystem
+        self.vision_tracker: Optional[VisionTracker] = None
+        self._init_vision_tracker()
+
+        # Web Remote API server subsystem
+        self.enable_web_remote: bool = enable_web_remote and self.settings.remote.enabled
+        self.web_remote: Optional[WebRemoteServer] = (
+            WebRemoteServer(
+                controller=self,
+                host=self.settings.remote.bind,
+                port=self.settings.remote.port,
+            )
+            if self.enable_web_remote
+            else None
+        )
+
         # Tracking loop threading
         self._running: bool = False
         self._frame_thread: Optional[threading.Thread] = None
@@ -137,6 +200,24 @@ class AppController:
 
         # Multi-monitor bounds
         self._vx, self._vy, self._vw, self._vh = self.synth.get_screen_bounds()
+
+    def _init_vision_tracker(self) -> None:
+        """Initializes VisionTracker instance and synchronizes with arbiter."""
+        vision_cfg = VisionTrackerSettings(
+            camera_index=self.settings.vision.camera_index,
+            target_fps=float(self.settings.vision.max_fps),
+            enable_head_tracking=self.settings.vision.face_tracking,
+            enable_hand_gestures=self.settings.vision.hand_gestures,
+        )
+        self.vision_tracker = VisionTracker(
+            settings=vision_cfg,
+            on_sample=self.handle_vision_sample,
+            on_gesture=self.handle_vision_gesture,
+        )
+        self.arbiter.set_camera_status(
+            available=self.vision_tracker.is_available,
+            enabled=self.enable_camera or self.settings.vision.enabled,
+        )
 
     def start(self, start_tracking: bool = False) -> None:
         """Starts the full AirCursor engine. Starts paused by default (Standby State Machine)."""
@@ -168,6 +249,14 @@ class AppController:
             )
             self.udp_receiver.start()
 
+        # Start Web Remote server if enabled
+        if self.web_remote:
+            self.web_remote.start()
+
+        # Start Vision tracker if camera is enabled
+        if self.enable_camera and self.vision_tracker:
+            self.vision_tracker.start()
+
         # Start High-Frequency 120Hz Tracking Frame Thread
         self._frame_thread = threading.Thread(
             target=self._tracking_loop, daemon=True, name="AirCursor-120Hz-Engine"
@@ -193,6 +282,10 @@ class AppController:
             self.udp_receiver.stop()
         if self.synthetic_generator:
             self.synthetic_generator.stop()
+        if self.vision_tracker:
+            self.vision_tracker.stop()
+        if self.web_remote:
+            self.web_remote.stop()
         if self._frame_thread and self._frame_thread.is_alive():
             self._frame_thread.join(timeout=0.5)
 
@@ -215,6 +308,8 @@ class AppController:
             alt=True,
             callback=lambda: self.end_drag() if self.is_dragging else self.begin_drag(),
         )
+        # Ctrl + Alt + V: Toggle vision camera tracking
+        self.hotkeys.register(ord("V"), ctrl=True, alt=True, callback=self.toggle_camera)
 
     def set_tracking(self, enabled: bool, announce: bool = True) -> None:
         """Pauses or resumes cursor tracking."""
@@ -281,6 +376,11 @@ class AppController:
         self._sample_count += 1
         self.motion_streaming = True
 
+        # Check with arbiter whether Bluetooth sample should drive cursor
+        should_consume = self.arbiter.notify_bluetooth_sample(sample, timestamp=now)
+        if not should_consume:
+            return
+
         # Process deliberate gestures only if tracking is enabled and not in human override
         enabled_gestures = self.settings.actions.enabled_head_gestures
         gesture_event = self.gestures.process(sample, enabled=enabled_gestures)
@@ -311,6 +411,134 @@ class AppController:
             target_vel = PointerMapper.cursor_velocity(rates, self.settings.pointer)
             self.smoother.set_target(target_vel, now)
 
+    def handle_vision_sample(self, sample: MotionSample) -> None:
+        """Called whenever a new vision camera tracking reading arrives."""
+        now = time.time()
+        self._last_sample_host_time = now
+        self._sample_count += 1
+        self.motion_streaming = True
+
+        should_consume = self.arbiter.notify_vision_sample(sample, timestamp=now)
+        if not should_consume:
+            return
+
+        # Differentiate attitude into angular velocities (deg/s)
+        rates = self.differentiator.push(sample)
+        if rates is None:
+            return
+
+        self.live_yaw = AngleMath.degrees(sample.yaw)
+        self.live_pitch = AngleMath.degrees(sample.pitch)
+        self.live_roll = AngleMath.degrees(sample.roll)
+        self.live_yaw_rate = rates.yaw
+        self.live_pitch_rate = rates.pitch
+
+        if self.tracking_enabled and (now >= self._human_override_until):
+            target_vel = PointerMapper.cursor_velocity(rates, self.settings.pointer)
+            self.smoother.set_target(target_vel, now)
+
+    def handle_vision_gesture(self, gesture: HandGesture, result: VisionFrameResult) -> None:
+        """Dispatches vision hand gestures to pointer actions."""
+        if not self.tracking_enabled or time.time() < self._human_override_until:
+            return
+
+        px = self._cursor.x if self._cursor else float(self._vx + self._vw // 2)
+        py = self._cursor.y if self._cursor else float(self._vy + self._vh // 2)
+
+        if gesture == HandGesture.OPEN_PALM:
+            # Open Palm: Free motion (release drag lock if active)
+            if self.is_dragging:
+                self.end_drag(px, py)
+
+        elif gesture == HandGesture.PINCH:
+            # Pinch / Index Tap: Left Click / Drag
+            if self.is_dragging:
+                self.end_drag(px, py)
+            else:
+                self.synth.click(button="left", x=px, y=py)
+                self.overlay.pulse(px, py)
+                self.overlay.show_toast("Pinch Click", "👌")
+
+        elif gesture == HandGesture.PEACE_SIGN:
+            # Peace Sign / Two Fingers Up: Right Click
+            if self.is_dragging:
+                self.end_drag(px, py)
+            self.synth.click(button="right", x=px, y=py)
+            self.overlay.pulse(px, py)
+            self.overlay.show_toast("Right Click", "✌")
+
+        elif gesture == HandGesture.CLOSED_FIST:
+            # Closed Fist: Drag lock / Hold
+            if not self.is_dragging:
+                self.begin_drag(px, py)
+
+        elif gesture == HandGesture.SWIPE_UP:
+            # Swipe Hand Up: Scroll Wheel Up
+            self.synth.scroll(vertical=3, horizontal=0)
+            self.overlay.show_toast("Scroll Up", "▲")
+
+        elif gesture == HandGesture.SWIPE_DOWN:
+            # Swipe Hand Down: Scroll Wheel Down
+            self.synth.scroll(vertical=-3, horizontal=0)
+            self.overlay.show_toast("Scroll Down", "▼")
+
+    def toggle_camera(self) -> bool:
+        """Toggles camera vision tracking on or off."""
+        if self.vision_tracker and self.vision_tracker.is_running:
+            self.stop_camera()
+            return False
+        else:
+            return self.start_camera()
+
+    def start_camera(self) -> bool:
+        """Starts camera vision tracking and switches arbiter source."""
+        if not self.vision_tracker:
+            self._init_vision_tracker()
+        if not self.vision_tracker:
+            return False
+
+        success = self.vision_tracker.start()
+        if success:
+            self.enable_camera = True
+            self.arbiter.set_camera_status(available=True, enabled=True)
+            self.arbiter.set_manual_source(TrackingSource.VISION)
+            self.overlay.show_toast("Camera Vision Tracking Started", "📷")
+            return True
+        else:
+            self.overlay.show_toast("Camera Unavailable", "⚠")
+            return False
+
+    def stop_camera(self) -> None:
+        """Stops camera vision tracking and returns to Bluetooth arbitration."""
+        if self.vision_tracker:
+            self.vision_tracker.stop()
+        self.enable_camera = False
+        self.arbiter.set_camera_status(
+            available=self.vision_tracker.is_available if self.vision_tracker else False,
+            enabled=False,
+        )
+        self.arbiter.set_manual_source(None)
+        self.overlay.show_toast("Camera Vision Tracking Stopped", "📷")
+
+    def _on_tracking_source_changed(
+        self, old_source: TrackingSource, new_source: TrackingSource
+    ) -> None:
+        """Dispatched when arbiter transitions tracking between Bluetooth, Vision, etc."""
+        if new_source == TrackingSource.VISION:
+            if self.vision_tracker and not self.vision_tracker.is_running:
+                self.vision_tracker.start()
+            self.smoother.reset()
+            self.differentiator.reset()
+            self.overlay.show_toast("Switched to Camera Vision Tracking", "📷")
+        elif new_source == TrackingSource.BLUETOOTH:
+            self.smoother.reset()
+            self.differentiator.reset()
+            self.overlay.show_toast("AirPods Connected — Head Tracking Active", "🎧")
+
+    def _on_fallback_suggested(self, message: str) -> None:
+        """Dispatched when AirPods are silent and camera fallback is recommended."""
+        self.overlay.show_toast("AirPods silent — Press Ctrl+Alt+V for Camera", "📷")
+
     def _tracking_loop(self) -> None:
         """Runs at 120 Hz to integrate cursor velocity and handle dwell inspection."""
         target_interval = 1.0 / 120.0
@@ -321,6 +549,9 @@ class AppController:
             now = time.time()
             dt = min(max(t0 - last_frame_time, 0.0), 0.05)
             last_frame_time = t0
+
+            # Arbiter watchdog: check if Bluetooth timed out > 3.0s and auto-fallback is needed
+            self.arbiter.check_health(now)
 
             # FPS counter
             self._frame_count += 1
@@ -413,8 +644,9 @@ class AppController:
             else:
                 self.overlay.update_dwell(None, self._cursor.x, self._cursor.y)
 
-            # Watchdog: detect if motion stream went stale (> 1.5s)
-            if self.motion_streaming and (now - self._last_sample_host_time > 1.5):
+            # Watchdog: detect if motion stream went stale (> 1.5s for AirPods or > 3s for Vision)
+            stale_threshold = 3.0 if self.arbiter.active_source == TrackingSource.VISION else 1.5
+            if self.motion_streaming and (now - self._last_sample_host_time > stale_threshold):
                 self.motion_streaming = False
                 self.smoother.reset()
                 if self.is_dragging:
@@ -588,3 +820,80 @@ class AppController:
         if x is not None and y is not None:
             self.overlay.pulse(x, y)
         self.overlay.show_toast("Dropped", "🖐")
+
+    def handle_remote_action(self, action: str, dx: float = 0.0, dy: float = 0.0) -> bool:
+        """Thread-safe handler for user actions from mobile web remote."""
+        act = action.strip().lower()
+        if act in ("click", "left_click"):
+            if self.is_dragging:
+                self.end_drag()
+            else:
+                self.synth.click(button="left")
+            return True
+        elif act == "right_click":
+            if self.is_dragging:
+                self.end_drag()
+            self.synth.click(button="right")
+            return True
+        elif act == "middle_click":
+            self.synth.click(button="middle")
+            return True
+        elif act == "double_click":
+            if self.is_dragging:
+                self.end_drag()
+            self.synth.double_click()
+            return True
+        elif act in ("drag_toggle", "drag"):
+            if self.is_dragging:
+                self.end_drag()
+            else:
+                self.begin_drag()
+            return True
+        elif act == "recenter":
+            self.recenter()
+            return True
+        elif act == "scroll":
+            self.synth.scroll(vertical=int(dy), horizontal=int(dx))
+            return True
+        elif act in ("toggle_tracking", "pause", "resume"):
+            if act == "pause":
+                self.set_tracking(False)
+            elif act == "resume":
+                self.set_tracking(True)
+            else:
+                self.toggle_tracking()
+            return True
+        elif act in ("toggle_mode", "scroll_mode", "pointer_mode"):
+            if act == "scroll_mode":
+                self.set_mode(TrackingMode.SCROLL)
+            elif act == "pointer_mode":
+                self.set_mode(TrackingMode.POINTER)
+            else:
+                self.toggle_mode()
+            return True
+        return False
+
+    def handle_remote_motion(self, data: dict) -> bool:
+        """Thread-safe handler for motion data (dx, dy or gyro) from mobile web remote."""
+        dx = float(data.get("dx", 0.0))
+        dy = float(data.get("dy", 0.0))
+        if abs(dx) > 0.001 or abs(dy) > 0.001:
+            if self.mode == TrackingMode.SCROLL:
+                self.synth.scroll(vertical=int(dy), horizontal=int(dx))
+            else:
+                self.synth.move_relative(dx, dy)
+                mx, my = self.synth.current_location()
+                self._cursor = Vec2(float(mx), float(my))
+
+        gyro = data.get("gyro")
+        if gyro and isinstance(gyro, dict):
+            pitch = float(gyro.get("pitch", 0.0))
+            yaw = float(gyro.get("yaw", 0.0))
+            roll = float(gyro.get("roll", 0.0))
+            if abs(pitch) > math.pi or abs(yaw) > math.pi:
+                pitch = AngleMath.radians(pitch)
+                yaw = AngleMath.radians(yaw)
+                roll = AngleMath.radians(roll)
+            sample = MotionSample(timestamp=time.time(), yaw=yaw, pitch=pitch, roll=roll)
+            self.handle_sample(sample)
+        return True

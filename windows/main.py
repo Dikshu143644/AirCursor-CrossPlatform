@@ -106,6 +106,25 @@ def main() -> None:
         help="Use synthetic sensor simulation instead of physical AirPods",
     )
     parser.add_argument(
+        "--camera",
+        "--webcam",
+        dest="use_camera",
+        action="store_true",
+        help="Enable Vision Webcam head & gesture tracking engine fallback",
+    )
+    parser.add_argument(
+        "--camera-index",
+        type=int,
+        default=None,
+        help="Webcam device index (default: 0)",
+    )
+    parser.add_argument(
+        "--web-remote-port",
+        type=int,
+        default=None,
+        help="Web Remote API port (default: 8765)",
+    )
+    parser.add_argument(
         "--port",
         type=int,
         default=4242,
@@ -202,6 +221,8 @@ def main() -> None:
     )
     print(f"[*] Overlay HUD: {'Disabled' if args.no_overlay else 'Active'}")
     print(f"[*] Stem Listener: {'Disabled' if args.no_stem else 'Active'}")
+    print(f"[*] Vision Tracking: {'Active (Forced)' if args.use_camera else 'Fallback Auto-Ready'}")
+    print(f"[*] Web Remote: Enabled (http://localhost:{args.web_remote_port or settings.remote.port})")
 
     paired_airpods = BluetoothAirPodsHelper.get_paired_airpods()
     if paired_airpods:
@@ -215,6 +236,7 @@ def main() -> None:
     print("  • Ctrl + Alt + S : Toggle Scroll Mode / Pointer Mode")
     print("  • Ctrl + Alt + C : Recenter Cursor")
     print("  • Ctrl + Alt + D : Toggle Left-Mouse Drag Lock")
+    print("  • Ctrl + Alt + V : Toggle Camera Vision Tracking")
     print("  • Ctrl + C       : Exit AirCursor\n")
 
     controller = AppController(
@@ -224,6 +246,9 @@ def main() -> None:
         udp_host=args.bind,
         show_overlay=not args.no_overlay,
         enable_stem_hook=not args.no_stem,
+        enable_camera=args.use_camera,
+        camera_index=args.camera_index,
+        web_remote_port=args.web_remote_port,
     )
 
     # System Tray Integration

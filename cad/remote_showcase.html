@@ -1,0 +1,1318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AirCursor | 3D Physical Remote Hardware Showcase</title>
+  <style>
+    :root {
+      --bg-dark: #0a0c10;
+      --panel-bg: rgba(18, 22, 30, 0.85);
+      --panel-border: rgba(255, 255, 255, 0.1);
+      --accent-cyan: #00e5ff;
+      --accent-glow: rgba(0, 229, 255, 0.35);
+      --text-main: #f0f4f8;
+      --text-muted: #8b9bb4;
+      --btn-bg: #1c2331;
+      --btn-hover: #273347;
+      --success-green: #00e676;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+    }
+
+    #webgl-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      outline: none;
+    }
+
+    /* Top Header Bar */
+    .header-bar {
+      position: absolute;
+      top: 16px;
+      left: 20px;
+      right: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .brand-title {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      backdrop-filter: blur(16px);
+      padding: 10px 20px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      pointer-events: auto;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .brand-badge {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      box-shadow: 0 0 12px var(--accent-cyan);
+      animation: pulse 2s infinite ease-in-out;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.8; transform: scale(0.95); }
+      50% { opacity: 1; transform: scale(1.15); box-shadow: 0 0 18px var(--accent-cyan); }
+    }
+
+    .brand-text h1 {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: #fff;
+    }
+
+    .brand-text span {
+      font-size: 11px;
+      color: var(--accent-cyan);
+      letter-spacing: 0.8px;
+    }
+
+    /* Concept Selector Ribbon */
+    .concept-nav {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      backdrop-filter: blur(16px);
+      padding: 6px;
+      border-radius: 14px;
+      display: flex;
+      gap: 6px;
+      z-index: 10;
+      pointer-events: auto;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .concept-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      padding: 8px 16px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .concept-btn:hover {
+      background: var(--btn-hover);
+      color: #fff;
+    }
+
+    .concept-btn.active {
+      background: rgba(0, 229, 255, 0.15);
+      border-color: var(--accent-cyan);
+      color: #fff;
+      box-shadow: 0 0 16px rgba(0, 229, 255, 0.25);
+    }
+
+    .concept-btn .tag {
+      font-size: 9px;
+      padding: 2px 5px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-muted);
+    }
+
+    .concept-btn.active .tag {
+      background: var(--accent-cyan);
+      color: #0a0c10;
+      font-weight: 700;
+    }
+
+    /* Right Specification Panel */
+    .spec-panel {
+      position: absolute;
+      top: 80px;
+      right: 20px;
+      bottom: 24px;
+      width: 360px;
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      backdrop-filter: blur(20px);
+      border-radius: 16px;
+      padding: 24px;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+      overflow-y: auto;
+      pointer-events: auto;
+    }
+
+    .spec-panel::-webkit-scrollbar {
+      width: 4px;
+    }
+    .spec-panel::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+    }
+
+    .spec-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+
+    .spec-name {
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .spec-id-badge {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: rgba(0, 229, 255, 0.15);
+      color: var(--accent-cyan);
+      border: 1px solid rgba(0, 229, 255, 0.3);
+    }
+
+    .spec-tagline {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.4;
+      margin-bottom: 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 14px;
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .stat-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 10px;
+      border-radius: 10px;
+    }
+
+    .stat-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .stat-value {
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .section-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--accent-cyan);
+      margin-top: 10px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .cmf-box {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 11.5px;
+      line-height: 1.5;
+      color: #d0d7de;
+      margin-bottom: 16px;
+    }
+
+    .cmf-swatches {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .swatch {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .features-list {
+      list-style: none;
+      margin-bottom: 20px;
+      font-size: 11.5px;
+      color: #c0cad8;
+    }
+
+    .features-list li {
+      position: relative;
+      padding-left: 16px;
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+
+    .features-list li::before {
+      content: "•";
+      position: absolute;
+      left: 0;
+      color: var(--accent-cyan);
+      font-weight: bold;
+    }
+
+    .select-button {
+      margin-top: auto;
+      background: linear-gradient(135deg, #00b4d8, #0077b6);
+      border: none;
+      color: #fff;
+      padding: 14px 20px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      box-shadow: 0 6px 20px rgba(0, 180, 216, 0.4);
+      transition: all 0.25s ease;
+    }
+
+    .select-button:hover {
+      background: linear-gradient(135deg, #00e5ff, #0096c7);
+      box-shadow: 0 8px 26px rgba(0, 229, 255, 0.5);
+      transform: translateY(-2px);
+    }
+
+    .select-button.selected {
+      background: linear-gradient(135deg, #00e676, #00b0ff);
+      box-shadow: 0 6px 20px rgba(0, 230, 118, 0.4);
+    }
+
+    /* Left Floating Toolset Bar */
+    .toolbar {
+      position: absolute;
+      bottom: 24px;
+      left: 20px;
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      backdrop-filter: blur(16px);
+      padding: 8px 12px;
+      border-radius: 14px;
+      display: flex;
+      gap: 10px;
+      z-index: 10;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .tool-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-main);
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .tool-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .tool-btn.active {
+      background: rgba(0, 229, 255, 0.2);
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+    }
+
+    /* Selection Toast Notification */
+    .toast {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: rgba(18, 22, 30, 0.95);
+      border: 1px solid var(--success-green);
+      backdrop-filter: blur(16px);
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 30px;
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 8px 32px rgba(0, 230, 118, 0.3);
+      z-index: 100;
+      opacity: 0;
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: none;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    .toast-icon {
+      color: var(--success-green);
+      font-size: 16px;
+    }
+
+    /* 3D Interaction Hint */
+    .interaction-hint {
+      position: absolute;
+      bottom: 24px;
+      left: 320px;
+      color: rgba(255, 255, 255, 0.35);
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      pointer-events: none;
+      z-index: 5;
+    }
+  </style>
+
+  <!-- Three.js and OrbitControls -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+  <!-- Background WebGL Canvas -->
+  <canvas id="webgl-canvas"></canvas>
+
+  <!-- Header Branding -->
+  <div class="header-bar">
+    <div class="brand-title">
+      <div class="brand-badge"></div>
+      <div class="brand-text">
+        <h1>AirCursor 3D CAD</h1>
+        <span>Physical Hardware Concepts (Subject 13)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Concept Navigation Ribbon -->
+  <div class="concept-nav" id="concept-nav">
+    <button class="concept-btn active" data-id="1">
+      <span class="tag">01</span> AirRing Pro
+    </button>
+    <button class="concept-btn" data-id="2">
+      <span class="tag">02</span> AirWand Elite
+    </button>
+    <button class="concept-btn" data-id="3">
+      <span class="tag">03</span> AirPebble Touch
+    </button>
+    <button class="concept-btn" data-id="4">
+      <span class="tag">04</span> AirClip Mini
+    </button>
+    <button class="concept-btn" data-id="5">
+      <span class="tag">05</span> AirDeck
+    </button>
+  </div>
+
+  <!-- Right Spec Panel -->
+  <div class="spec-panel" id="spec-panel">
+    <div class="spec-title-row">
+      <div class="spec-name" id="concept-name">AirRing Pro</div>
+      <div class="spec-id-badge" id="concept-badge">CONCEPT 01</div>
+    </div>
+    <div class="spec-tagline" id="concept-tagline">
+      Index finger wearable smart ring with micro optical trackball, 360° capacitive scroll bezel, and 6-axis IMU.
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-label">Mass / Weight</div>
+        <div class="stat-value" id="stat-mass">8.8 grams</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Dimensions</div>
+        <div class="stat-value" id="stat-dimensions">Ø 23.8 x 8.4 mm</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Battery Runtime</div>
+        <div class="stat-value" id="stat-battery">38 hrs (24 mAh)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Primary Input</div>
+        <div class="stat-value" id="stat-input">PAT9125 Optical Ball</div>
+      </div>
+    </div>
+
+    <div class="section-title">Materials, Color & Finish (CMF)</div>
+    <div class="cmf-box" id="cmf-details">
+      Grade 5 Titanium shell in PVD Space Gray (Ra 0.4 µm) with diamond-turned high-gloss bevels. Inner hypoallergenic medical PEEK liner. Polished ruby optical ball.
+      <div class="cmf-swatches">
+        <div class="swatch" style="background: #4a4d52;" title="Titanium Space Gray"></div>
+        <div class="swatch" style="background: #1a1a1a;" title="PEEK Inner Liner"></div>
+        <div class="swatch" style="background: #00e5ff;" title="AirCursor Cyan LED"></div>
+        <div class="swatch" style="background: #d4af37;" title="Pogo Charging Contacts"></div>
+      </div>
+    </div>
+
+    <div class="section-title">Core Architecture & Features</div>
+    <ul class="features-list" id="features-list">
+      <li>Sub-pixel micro-nudging via encapsulated 3.2mm optical trackball.</li>
+      <li>360-degree Azoteq capacitive touch bezel for smooth rotational scroll.</li>
+      <li>TDK InvenSense ICM-42688-P 6-axis IMU with 200 Hz DMP fusion.</li>
+      <li>TDK PowerHap 2.5G piezoelectric haptic click engine.</li>
+      <li>Nordic nRF5340 dual-core BLE 5.3 SoC + 2-pin magnetic pogo charging.</li>
+    </ul>
+
+    <button class="select-button" id="select-btn">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+      <span id="select-btn-text">Select as Primary Remote</span>
+    </button>
+  </div>
+
+  <!-- Bottom Toolbar -->
+  <div class="toolbar">
+    <button class="tool-btn active" id="btn-turntable">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+      Turntable
+    </button>
+    <button class="tool-btn" id="btn-exploded">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M4.93 19.07l14.14-14.14"/></svg>
+      Exploded Stackup
+    </button>
+    <button class="tool-btn" id="btn-wireframe">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+      Wireframe
+    </button>
+    <button class="tool-btn" id="btn-reset">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+      Reset View
+    </button>
+  </div>
+
+  <div class="interaction-hint">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+    Click & Drag to Orbit | Scroll to Zoom | Right Click to Pan
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast">
+    <span class="toast-icon">✓</span>
+    <span id="toast-text">AirRing Pro selected as primary AirCursor remote!</span>
+  </div>
+
+  <!-- Application Logic -->
+  <script>
+    // Concept Metadata Database
+    const CONCEPTS_DATA = {
+      1: {
+        name: "AirRing Pro",
+        badge: "CONCEPT 01",
+        tagline: "Index-finger wearable smart ring with micro optical trackball, 360° capacitive scroll bezel, and 6-axis IMU.",
+        mass: "8.8 grams",
+        dimensions: "Ø 23.8 x 8.4 mm",
+        battery: "38 hrs (24 mAh)",
+        input: "PAT9125 Optical Ball",
+        cmf: "Grade 5 Titanium shell in PVD Space Gray (Ra 0.4 µm) with diamond-turned high-gloss bevels. Inner hypoallergenic medical PEEK liner. Polished ruby optical ball.",
+        swatches: ["#4a4d52", "#1a1a1a", "#00e5ff", "#d4af37"],
+        features: [
+          "Sub-pixel micro-nudging via encapsulated 3.2mm optical trackball.",
+          "360-degree Azoteq capacitive touch bezel for smooth rotational scroll.",
+          "TDK InvenSense ICM-42688-P 6-axis IMU with 200 Hz DMP fusion.",
+          "TDK PowerHap 2.5G piezoelectric haptic click engine.",
+          "Nordic nRF5340 dual-core BLE 5.3 SoC + 2-pin magnetic pogo charging."
+        ]
+      },
+      2: {
+        name: "AirWand Elite",
+        badge: "CONCEPT 02",
+        tagline: "Contoured ergonomic air-mouse wand with tactile index trigger, thumb rocker, and AirPods stem squeeze pads.",
+        mass: "52.0 grams",
+        dimensions: "132 x 28.5 x 24.0 mm",
+        battery: "94 hrs (350 mAh)",
+        input: "Tactile Index Trigger",
+        cmf: "CNC bead-blasted 6061-T6 aluminum spine in Midnight Obsidian. Dual-shot soft-touch fluoroelastomer lower grip. Smoked PMMA cyan accent ring.",
+        swatches: ["#1c1d21", "#333742", "#00e5ff", "#888888"],
+        features: [
+          "Zero-latency mechanical index finger trigger (Omron 10M switch).",
+          "5-way thumb rocker pill for virtual desktop and tab management.",
+          "Dual lateral stem squeeze force sensors (AirPods-style gesture arbitration).",
+          "9-axis spatial orientation (6-axis IMU + AK09918 3-axis magnetometer).",
+          "USB-C fast charge + twin magnetic desktop docking contacts."
+        ]
+      },
+      3: {
+        name: "AirPebble Touch",
+        badge: "CONCEPT 03",
+        tagline: "Organic river-stone desk and palm puck with full-surface multi-touch dome glass and 64-detent rotary aluminum dial.",
+        mass: "64.0 grams",
+        dimensions: "68.0 x 54.0 x 19.5 mm",
+        battery: "120 hrs (450 mAh)",
+        input: "Multi-Touch Dome + Dial",
+        cmf: "Chemically-strengthened Corning Gorilla Glass Victus with acid-etched velvet matte finish. Knurled 6061 aluminum dial crown. Zirconia ceramic weighted base.",
+        swatches: ["#b0bec5", "#546e7a", "#263238", "#00e5ff"],
+        features: [
+          "Full-surface 3-point capacitive multi-touch dome for gestures.",
+          "Rotary optical aluminum dial ring with magnetic detent feedback.",
+          "PixArt PAW3395 26,000 DPI optical flow sensor on base for desk glide.",
+          "Qi 5W wireless charging receiver sealed inside base.",
+          "Internal brass ballast plate for grounding stability."
+        ]
+      },
+      4: {
+        name: "AirClip Mini",
+        badge: "CONCEPT 04",
+        tagline: "Featherweight 14g eyewear and collar lapel clip with micro toggle switch, capacitive tap pad, and precision IMU.",
+        mass: "14.0 grams",
+        dimensions: "38.5 x 14.2 x 9.8 mm",
+        battery: "28 hrs (65 mAh)",
+        input: "Capacitive Tap / IMU",
+        cmf: "Carbon-fiber reinforced polymer (CFRP) 3K twill housing. Full-hard 301 stainless steel spring clip arm with PVD black coating. Electric crimson toggle accent.",
+        swatches: ["#212121", "#3e3e3e", "#e53935", "#00e5ff"],
+        features: [
+          "Ultra-light 14g clip locks to eyewear temples with zero sag.",
+          "Bosch Sensortec BMI270 6-axis IMU for zero-camera head tracking fallback.",
+          "Capacitive outer surface detects temple double-tap and scroll swipes.",
+          "Hardware micro slide toggle for instant mechanical cursor freeze.",
+          "Subminiature haptic pulse motor delivering behind-the-ear feedback."
+        ]
+      },
+      5: {
+        name: "AirDeck Controller",
+        badge: "CONCEPT 05",
+        tagline: "Compact handheld asymmetric thumb-deck with 22mm concave force trackpad, shoulder triggers, and OLED status pill.",
+        mass: "68.0 grams",
+        dimensions: "88.0 x 46.0 x 22.0 mm",
+        battery: "82 hrs (500 mAh)",
+        input: "Concave Force Trackpad",
+        cmf: "Die-cast AZ91D Magnesium alloy chassis with micro-arc ceramic matte finish. Textured PBT thumb disc. Dual anodized cobalt blue shoulder triggers.",
+        swatches: ["#e0e0e0", "#2b3a4a", "#1e88e5", "#00e5ff"],
+        features: [
+          "22mm concave thumb trackpad with integrated capacitive and force click.",
+          "Dual low-profile mechanical shoulder triggers (L1/R1 index bumpers).",
+          "0.49\" monochrome white OLED telemetry pill displaying status and battery.",
+          "Independent dual-axis linear resonant actuators (LRA haptics).",
+          "Ultra-low-latency 2.4 GHz RF / BLE 5.3 dual-link transceiver."
+        ]
+      }
+    };
+
+    // State Variables
+    let currentConceptId = 1;
+    let turntableActive = true;
+    let explodedActive = false;
+    let wireframeActive = false;
+    let scene, camera, renderer, controls;
+    let modelGroup = null;
+    let conceptSubGroups = {};
+
+    // DOM Elements
+    const canvas = document.getElementById('webgl-canvas');
+    const conceptBtns = document.querySelectorAll('.concept-btn');
+    const specName = document.getElementById('concept-name');
+    const specBadge = document.getElementById('concept-badge');
+    const specTagline = document.getElementById('concept-tagline');
+    const statMass = document.getElementById('stat-mass');
+    const statDimensions = document.getElementById('stat-dimensions');
+    const statBattery = document.getElementById('stat-battery');
+    const statInput = document.getElementById('stat-input');
+    const cmfDetails = document.getElementById('cmf-details');
+    const featuresList = document.getElementById('features-list');
+    const selectBtn = document.getElementById('select-btn');
+    const selectBtnText = document.getElementById('select-btn-text');
+    const btnTurntable = document.getElementById('btn-turntable');
+    const btnExploded = document.getElementById('btn-exploded');
+    const btnWireframe = document.getElementById('btn-wireframe');
+    const btnReset = document.getElementById('btn-reset');
+    const toast = document.getElementById('toast');
+    const toastText = document.getElementById('toast-text');
+
+    // Initialize Three.js Scene
+    function initThree() {
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0a0c10);
+      scene.fog = new THREE.FogExp2(0x0a0c10, 0.04);
+
+      camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100);
+      camera.position.set(0, 3.5, 6.5);
+
+      renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: "high-performance" });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.15;
+
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.maxPolarAngle = Math.PI / 2 + 0.05; // slight ground under-view
+      controls.minDistance = 2.0;
+      controls.maxDistance = 14.0;
+      controls.target.set(0, 0, 0);
+
+      // Studio Lighting Rig
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+      scene.add(ambientLight);
+
+      // Key Light
+      const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
+      keyLight.position.set(4, 7, 5);
+      keyLight.castShadow = true;
+      keyLight.shadow.mapSize.width = 2048;
+      keyLight.shadow.mapSize.height = 2048;
+      keyLight.shadow.bias = -0.0001;
+      scene.add(keyLight);
+
+      // Cool Rim Light
+      const rimLight = new THREE.DirectionalLight(0x00e5ff, 1.5);
+      rimLight.position.set(-5, 4, -4);
+      scene.add(rimLight);
+
+      // Warm Fill Light
+      const fillLight = new THREE.DirectionalLight(0xffd1a4, 0.6);
+      fillLight.position.set(-4, -1, 4);
+      scene.add(fillLight);
+
+      // Shadow Catcher Ground Plane
+      const groundGeo = new THREE.PlaneGeometry(30, 30);
+      const groundMat = new THREE.ShadowMaterial({ opacity: 0.35 });
+      const ground = new THREE.Mesh(groundGeo, groundMat);
+      ground.rotation.x = -Math.PI / 2;
+      ground.position.y = -1.5;
+      ground.receiveShadow = true;
+      scene.add(ground);
+
+      // Subtle Grid Ring
+      const grid = new THREE.GridHelper(20, 40, 0x00e5ff, 0x1f2937);
+      grid.position.y = -1.49;
+      grid.material.opacity = 0.15;
+      grid.material.transparent = true;
+      scene.add(grid);
+
+      // Master Model Group
+      modelGroup = new THREE.Group();
+      scene.add(modelGroup);
+
+      // Build 3D Models for all 5 concepts
+      buildAllModels();
+
+      // Show concept 1 initially
+      switchConcept(1);
+
+      // Check localStorage for saved selection
+      const saved = localStorage.getItem('aircursor_selected_concept');
+      if (saved && saved == currentConceptId) {
+        setSelectBtnState(true);
+      }
+
+      window.addEventListener('resize', onWindowResize);
+    }
+
+    // Material Library
+    function getMaterials() {
+      return {
+        titanium: new THREE.MeshStandardMaterial({
+          color: 0x5a5d64,
+          metalness: 0.88,
+          roughness: 0.28,
+        }),
+        peekLiner: new THREE.MeshStandardMaterial({
+          color: 0x151618,
+          metalness: 0.1,
+          roughness: 0.65,
+        }),
+        rubyBall: new THREE.MeshPhysicalMaterial({
+          color: 0x990022,
+          metalness: 0.1,
+          roughness: 0.05,
+          clearcoat: 1.0,
+          clearcoatRoughness: 0.05,
+        }),
+        anodizedBlack: new THREE.MeshStandardMaterial({
+          color: 0x1e2024,
+          metalness: 0.85,
+          roughness: 0.35,
+        }),
+        softRubber: new THREE.MeshStandardMaterial({
+          color: 0x242830,
+          metalness: 0.05,
+          roughness: 0.75,
+        }),
+        frostedGlass: new THREE.MeshPhysicalMaterial({
+          color: 0xd8e4ed,
+          metalness: 0.1,
+          roughness: 0.2,
+          transmission: 0.85,
+          thickness: 1.2,
+          transparent: true,
+          opacity: 0.92,
+        }),
+        knurledAluminum: new THREE.MeshStandardMaterial({
+          color: 0xc4cbd4,
+          metalness: 0.95,
+          roughness: 0.22,
+        }),
+        ceramicWhite: new THREE.MeshStandardMaterial({
+          color: 0xedf0f5,
+          metalness: 0.15,
+          roughness: 0.35,
+        }),
+        carbonFiber: new THREE.MeshStandardMaterial({
+          color: 0x222428,
+          metalness: 0.45,
+          roughness: 0.4,
+        }),
+        stainlessSteel: new THREE.MeshStandardMaterial({
+          color: 0x8a929e,
+          metalness: 0.92,
+          roughness: 0.2,
+        }),
+        redAccent: new THREE.MeshStandardMaterial({
+          color: 0xd32f2f,
+          metalness: 0.5,
+          roughness: 0.3,
+        }),
+        magnesium: new THREE.MeshStandardMaterial({
+          color: 0xd5dade,
+          metalness: 0.8,
+          roughness: 0.4,
+        }),
+        cobaltBlue: new THREE.MeshStandardMaterial({
+          color: 0x1565c0,
+          metalness: 0.8,
+          roughness: 0.3,
+        }),
+        cyanGlow: new THREE.MeshStandardMaterial({
+          color: 0x00e5ff,
+          emissive: 0x00e5ff,
+          emissiveIntensity: 2.2,
+          roughness: 0.2,
+        }),
+        oledDisplay: new THREE.MeshStandardMaterial({
+          color: 0x050505,
+          emissive: 0x2a3b4c,
+          emissiveIntensity: 0.8,
+          roughness: 0.1,
+        }),
+        goldPins: new THREE.MeshStandardMaterial({
+          color: 0xffd700,
+          metalness: 0.95,
+          roughness: 0.15,
+        })
+      };
+    }
+
+    // Build procedural 3D geometries for all 5 concepts
+    function buildAllModels() {
+      const mats = getMaterials();
+
+      // ==========================================
+      // CONCEPT 1: AirRing Pro
+      // ==========================================
+      const g1 = new THREE.Group();
+      conceptSubGroups[1] = { group: g1, parts: [] };
+
+      // Outer Ring Band
+      const outerRingGeo = new THREE.TorusGeometry(1.2, 0.28, 24, 64);
+      const outerRing = new THREE.Mesh(outerRingGeo, mats.titanium);
+      outerRing.castShadow = true;
+      outerRing.receiveShadow = true;
+      g1.add(outerRing);
+      conceptSubGroups[1].parts.push({ mesh: outerRing, offset: new THREE.Vector3(0, 0, 0) });
+
+      // Inner PEEK Liner
+      const innerLinerGeo = new THREE.CylinderGeometry(0.96, 0.96, 0.52, 48, 1, true);
+      const innerLiner = new THREE.Mesh(innerLinerGeo, mats.peekLiner);
+      innerLiner.rotation.x = Math.PI / 2;
+      g1.add(innerLiner);
+      conceptSubGroups[1].parts.push({ mesh: innerLiner, offset: new THREE.Vector3(0, 0, 0) });
+
+      // Top Trackball Dome & Facet
+      const facetGeo = new THREE.BoxGeometry(0.7, 0.22, 0.6);
+      const facet = new THREE.Mesh(facetGeo, mats.titanium);
+      facet.position.set(0, 1.35, 0);
+      g1.add(facet);
+      conceptSubGroups[1].parts.push({ mesh: facet, offset: new THREE.Vector3(0, 0.6, 0) });
+
+      // Optical Trackball
+      const ballGeo = new THREE.SphereGeometry(0.18, 32, 32);
+      const ball = new THREE.Mesh(ballGeo, mats.rubyBall);
+      ball.position.set(0, 1.48, 0);
+      ball.castShadow = true;
+      g1.add(ball);
+      conceptSubGroups[1].parts.push({ mesh: ball, offset: new THREE.Vector3(0, 1.1, 0) });
+
+      // Cyan LED Indicator Ring
+      const ledRingGeo = new THREE.TorusGeometry(0.24, 0.025, 16, 32);
+      const ledRing = new THREE.Mesh(ledRingGeo, mats.cyanGlow);
+      ledRing.rotation.x = Math.PI / 2;
+      ledRing.position.set(0, 1.45, 0);
+      g1.add(ledRing);
+      conceptSubGroups[1].parts.push({ mesh: ledRing, offset: new THREE.Vector3(0, 0.85, 0) });
+
+      // Bottom Magnetic Pogo Pins
+      for (let p = -0.15; p <= 0.15; p += 0.3) {
+        const pinGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.1, 16);
+        const pin = new THREE.Mesh(pinGeo, mats.goldPins);
+        pin.position.set(p, -1.35, 0);
+        g1.add(pin);
+        conceptSubGroups[1].parts.push({ mesh: pin, offset: new THREE.Vector3(0, -0.6, 0) });
+      }
+
+      g1.scale.set(1.2, 1.2, 1.2);
+      modelGroup.add(g1);
+
+      // ==========================================
+      // CONCEPT 2: AirWand Elite
+      // ==========================================
+      const g2 = new THREE.Group();
+      conceptSubGroups[2] = { group: g2, parts: [] };
+
+      // Sculpted Wand Body
+      const wandBodyGeo = new THREE.CylinderGeometry(0.35, 0.55, 3.8, 32);
+      const wandBody = new THREE.Mesh(wandBodyGeo, mats.anodizedBlack);
+      wandBody.rotation.z = THREE.MathUtils.degToRad(-12);
+      wandBody.castShadow = true;
+      wandBody.receiveShadow = true;
+      g2.add(wandBody);
+      conceptSubGroups[2].parts.push({ mesh: wandBody, offset: new THREE.Vector3(0, 0, 0) });
+
+      // Fluoroelastomer Lower Grip
+      const gripGeo = new THREE.CylinderGeometry(0.57, 0.57, 1.8, 32);
+      const grip = new THREE.Mesh(gripGeo, mats.softRubber);
+      grip.position.set(-0.2, -0.8, 0);
+      grip.rotation.z = THREE.MathUtils.degToRad(-12);
+      g2.add(grip);
+      conceptSubGroups[2].parts.push({ mesh: grip, offset: new THREE.Vector3(0, -0.5, 0) });
+
+      // Top Thumb Rocker Pill
+      const rockerGeo = new THREE.BoxGeometry(0.3, 0.15, 0.65);
+      const rocker = new THREE.Mesh(rockerGeo, mats.titanium);
+      rocker.position.set(0.35, 1.1, 0);
+      rocker.rotation.z = THREE.MathUtils.degToRad(-12);
+      g2.add(rocker);
+      conceptSubGroups[2].parts.push({ mesh: rocker, offset: new THREE.Vector3(0.5, 0.6, 0) });
+
+      // Index Trigger (Underside)
+      const triggerGeo = new THREE.BoxGeometry(0.2, 0.45, 0.35);
+      const trigger = new THREE.Mesh(triggerGeo, mats.titanium);
+      trigger.position.set(-0.35, 0.5, 0);
+      trigger.rotation.z = THREE.MathUtils.degToRad(18);
+      g2.add(trigger);
+      conceptSubGroups[2].parts.push({ mesh: trigger, offset: new THREE.Vector3(-0.7, 0, 0) });
+
+      // Squeeze Sensor Indents (Lateral Flanks)
+      const sqL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.8, 0.15), mats.peekLiner);
+      sqL.position.set(0, 0.2, 0.48);
+      sqL.rotation.z = THREE.MathUtils.degToRad(-12);
+      g2.add(sqL);
+      conceptSubGroups[2].parts.push({ mesh: sqL, offset: new THREE.Vector3(0, 0, 0.6) });
+
+      const sqR = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.8, 0.15), mats.peekLiner);
+      sqR.position.set(0, 0.2, -0.48);
+      sqR.rotation.z = THREE.MathUtils.degToRad(-12);
+      g2.add(sqR);
+      conceptSubGroups[2].parts.push({ mesh: sqR, offset: new THREE.Vector3(0, 0, -0.6) });
+
+      // Cyan Accent Glow Ring
+      const wandRingGeo = new THREE.TorusGeometry(0.42, 0.035, 16, 48);
+      const wandRing = new THREE.Mesh(wandRingGeo, mats.cyanGlow);
+      wandRing.position.set(0.2, 1.55, 0);
+      wandRing.rotation.x = Math.PI / 2;
+      wandRing.rotation.y = THREE.MathUtils.degToRad(-12);
+      g2.add(wandRing);
+      conceptSubGroups[2].parts.push({ mesh: wandRing, offset: new THREE.Vector3(0.3, 0.8, 0) });
+
+      modelGroup.add(g2);
+
+      // ==========================================
+      // CONCEPT 3: AirPebble Touch
+      // ==========================================
+      const g3 = new THREE.Group();
+      conceptSubGroups[3] = { group: g3, parts: [] };
+
+      // Base Ceramic Chassis
+      const pebbleBaseGeo = new THREE.CylinderGeometry(1.5, 1.4, 0.4, 48);
+      const pebbleBase = new THREE.Mesh(pebbleBaseGeo, mats.ceramicWhite);
+      pebbleBase.scale.set(1.25, 1.0, 0.95); // elliptical river stone
+      pebbleBase.position.y = -0.2;
+      pebbleBase.castShadow = true;
+      pebbleBase.receiveShadow = true;
+      g3.add(pebbleBase);
+      conceptSubGroups[3].parts.push({ mesh: pebbleBase, offset: new THREE.Vector3(0, -0.6, 0) });
+
+      // Knurled Aluminum Rotary Dial Rim
+      const dialGeo = new THREE.TorusGeometry(1.65, 0.08, 16, 64);
+      const dial = new THREE.Mesh(dialGeo, mats.knurledAluminum);
+      dial.scale.set(1.25, 0.95, 1.0);
+      dial.rotation.x = Math.PI / 2;
+      dial.position.y = 0.0;
+      g3.add(dial);
+      conceptSubGroups[3].parts.push({ mesh: dial, offset: new THREE.Vector3(0, 0, 0) });
+
+      // Frosted Glass Dome Top (Multi-Touch Surface)
+      const domeGeo = new THREE.SphereGeometry(1.6, 48, 24, 0, Math.PI * 2, 0, Math.PI * 0.32);
+      const dome = new THREE.Mesh(domeGeo, mats.frostedGlass);
+      dome.scale.set(1.25, 0.45, 0.95);
+      dome.position.y = -0.15;
+      dome.castShadow = true;
+      g3.add(dome);
+      conceptSubGroups[3].parts.push({ mesh: dome, offset: new THREE.Vector3(0, 0.8, 0) });
+
+      // Cyan Accent Glow Perimeter
+      const domeRingGeo = new THREE.TorusGeometry(1.5, 0.02, 16, 64);
+      const domeRing = new THREE.Mesh(domeRingGeo, mats.cyanGlow);
+      domeRing.scale.set(1.25, 0.95, 1.0);
+      domeRing.rotation.x = Math.PI / 2;
+      domeRing.position.y = 0.05;
+      g3.add(domeRing);
+      conceptSubGroups[3].parts.push({ mesh: domeRing, offset: new THREE.Vector3(0, 0.4, 0) });
+
+      // Optical PAW3395 Lens Aperture (Bottom)
+      const lensGeo = new THREE.CylinderGeometry(0.15, 0.15, 0.05, 24);
+      const lens = new THREE.Mesh(lensGeo, mats.rubyBall);
+      lens.position.y = -0.42;
+      g3.add(lens);
+      conceptSubGroups[3].parts.push({ mesh: lens, offset: new THREE.Vector3(0, -0.9, 0) });
+
+      modelGroup.add(g3);
+
+      // ==========================================
+      // CONCEPT 4: AirClip Mini
+      // ==========================================
+      const g4 = new THREE.Group();
+      conceptSubGroups[4] = { group: g4, parts: [] };
+
+      // CFRP Top Housing Body
+      const clipBodyGeo = new THREE.BoxGeometry(1.0, 0.32, 2.2);
+      const clipBody = new THREE.Mesh(clipBodyGeo, mats.carbonFiber);
+      clipBody.castShadow = true;
+      clipBody.receiveShadow = true;
+      g4.add(clipBody);
+      conceptSubGroups[4].parts.push({ mesh: clipBody, offset: new THREE.Vector3(0, 0.5, 0) });
+
+      // Stainless Steel Spring Clip Jaw
+      const clipJawGeo = new THREE.BoxGeometry(0.85, 0.12, 2.0);
+      const clipJaw = new THREE.Mesh(clipJawGeo, mats.stainlessSteel);
+      clipJaw.position.set(0, -0.32, -0.1);
+      clipJaw.rotation.x = THREE.MathUtils.degToRad(-5);
+      clipJaw.castShadow = true;
+      g4.add(clipJaw);
+      conceptSubGroups[4].parts.push({ mesh: clipJaw, offset: new THREE.Vector3(0, -0.6, 0) });
+
+      // Capacitive Tap Pad Zone (Face)
+      const tapPadGeo = new THREE.PlaneGeometry(0.7, 1.4);
+      const tapPad = new THREE.Mesh(tapPadGeo, mats.peekLiner);
+      tapPad.rotation.x = -Math.PI / 2;
+      tapPad.position.set(0, 0.165, 0.2);
+      g4.add(tapPad);
+      conceptSubGroups[4].parts.push({ mesh: tapPad, offset: new THREE.Vector3(0, 0.8, 0) });
+
+      // Micro Red Slide Switch
+      const switchGeo = new THREE.BoxGeometry(0.15, 0.18, 0.25);
+      const switchMesh = new THREE.Mesh(switchGeo, mats.redAccent);
+      switchMesh.position.set(0.55, 0.05, -0.5);
+      g4.add(switchMesh);
+      conceptSubGroups[4].parts.push({ mesh: switchMesh, offset: new THREE.Vector3(0.5, 0.2, 0) });
+
+      // Micro Status Pill LED
+      const clipLedGeo = new THREE.CapsuleGeometry ? new THREE.CapsuleGeometry(0.04, 0.15, 8, 16) : new THREE.CylinderGeometry(0.04, 0.04, 0.18, 16);
+      const clipLed = new THREE.Mesh(clipLedGeo, mats.cyanGlow);
+      clipLed.rotation.x = Math.PI / 2;
+      clipLed.position.set(0, 0.17, -0.7);
+      g4.add(clipLed);
+      conceptSubGroups[4].parts.push({ mesh: clipLed, offset: new THREE.Vector3(0, 0.9, 0) });
+
+      g4.scale.set(1.4, 1.4, 1.4);
+      modelGroup.add(g4);
+
+      // ==========================================
+      // CONCEPT 5: AirDeck Controller
+      // ==========================================
+      const g5 = new THREE.Group();
+      conceptSubGroups[5] = { group: g5, parts: [] };
+
+      // Asymmetric Deck Body
+      const deckBodyGeo = new THREE.BoxGeometry(2.0, 0.55, 3.2);
+      const deckBody = new THREE.Mesh(deckBodyGeo, mats.magnesium);
+      deckBody.castShadow = true;
+      deckBody.receiveShadow = true;
+      g5.add(deckBody);
+      conceptSubGroups[5].parts.push({ mesh: deckBody, offset: new THREE.Vector3(0, 0, 0) });
+
+      // Concave Thumb Trackpad Disc
+      const padGeo = new THREE.CylinderGeometry(0.65, 0.65, 0.08, 48);
+      const pad = new THREE.Mesh(padGeo, mats.peekLiner);
+      pad.position.set(-0.25, 0.29, 0.4);
+      g5.add(pad);
+      conceptSubGroups[5].parts.push({ mesh: pad, offset: new THREE.Vector3(-0.3, 0.7, 0.4) });
+
+      // Tactile Center Pip
+      const pipGeo = new THREE.SphereGeometry(0.06, 16, 16);
+      const pip = new THREE.Mesh(pipGeo, mats.cyanGlow);
+      pip.position.set(-0.25, 0.35, 0.4);
+      g5.add(pip);
+      conceptSubGroups[5].parts.push({ mesh: pip, offset: new THREE.Vector3(-0.3, 0.9, 0.4) });
+
+      // Curved OLED Status Pill Screen
+      const oledGeo = new THREE.BoxGeometry(1.2, 0.04, 0.45);
+      const oled = new THREE.Mesh(oledGeo, mats.oledDisplay);
+      oled.position.set(0, 0.29, -0.9);
+      g5.add(oled);
+      conceptSubGroups[5].parts.push({ mesh: oled, offset: new THREE.Vector3(0, 0.7, -0.9) });
+
+      // Dual Shoulder Triggers (L1 / R1 Bumpers)
+      const trigL = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.22, 0.35), mats.cobaltBlue);
+      trigL.position.set(-0.65, 0.2, -1.7);
+      g5.add(trigL);
+      conceptSubGroups[5].parts.push({ mesh: trigL, offset: new THREE.Vector3(-0.7, 0.3, -0.8) });
+
+      const trigR = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.22, 0.35), mats.cobaltBlue);
+      trigR.position.set(0.65, 0.2, -1.7);
+      g5.add(trigR);
+      conceptSubGroups[5].parts.push({ mesh: trigR, offset: new THREE.Vector3(0.7, 0.3, -0.8) });
+
+      // Profile Buttons (A / B)
+      const btnAGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.08, 24);
+      const btnA = new THREE.Mesh(btnAGeo, mats.titanium);
+      btnA.position.set(0.55, 0.29, 0.2);
+      g5.add(btnA);
+      conceptSubGroups[5].parts.push({ mesh: btnA, offset: new THREE.Vector3(0.55, 0.6, 0.2) });
+
+      const btnBGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.08, 24);
+      const btnB = new THREE.Mesh(btnBGeo, mats.titanium);
+      btnB.position.set(0.55, 0.29, 0.65);
+      g5.add(btnB);
+      conceptSubGroups[5].parts.push({ mesh: btnB, offset: new THREE.Vector3(0.55, 0.6, 0.65) });
+
+      modelGroup.add(g5);
+    }
+
+    // Switch Active Concept
+    function switchConcept(id) {
+      currentConceptId = id;
+
+      // Update Nav Buttons
+      conceptBtns.forEach(btn => {
+        if (btn.getAttribute('data-id') == id) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+
+      // Toggle 3D Group Visibility
+      for (const [key, item] of Object.entries(conceptSubGroups)) {
+        item.group.visible = (key == id);
+      }
+
+      // Update Spec Panel
+      const data = CONCEPTS_DATA[id];
+      specName.innerText = data.name;
+      specBadge.innerText = data.badge;
+      specTagline.innerText = data.tagline;
+      statMass.innerText = data.mass;
+      statDimensions.innerText = data.dimensions;
+      statBattery.innerText = data.battery;
+      statInput.innerText = data.input;
+      cmfDetails.childNodes[0].nodeValue = data.cmf + " ";
+
+      // Update Swatches
+      const swatchContainer = cmfDetails.querySelector('.cmf-swatches');
+      swatchContainer.innerHTML = '';
+      data.swatches.forEach(c => {
+        const sw = document.createElement('div');
+        sw.className = 'swatch';
+        sw.style.backgroundColor = c;
+        swatchContainer.appendChild(sw);
+      });
+
+      // Update Features List
+      featuresList.innerHTML = '';
+      data.features.forEach(f => {
+        const li = document.createElement('li');
+        li.innerText = f;
+        featuresList.appendChild(li);
+      });
+
+      // Reset Exploded state if switching
+      if (explodedActive) {
+        applyExplodedTransform(true);
+      }
+
+      // Check if selected
+      const saved = localStorage.getItem('aircursor_selected_concept');
+      setSelectBtnState(saved == id);
+    }
+
+    function setSelectBtnState(isSelected) {
+      if (isSelected) {
+        selectBtn.classList.add('selected');
+        selectBtnText.innerText = "Selected as AirCursor Remote";
+      } else {
+        selectBtn.classList.remove('selected');
+        selectBtnText.innerText = "Select as Primary Remote";
+      }
+    }
+
+    // Exploded View Transition
+    function applyExplodedTransform(isExploded) {
+      const activeObj = conceptSubGroups[currentConceptId];
+      if (!activeObj) return;
+
+      activeObj.parts.forEach(part => {
+        const target = isExploded ? part.offset : new THREE.Vector3(0, 0, 0);
+        part.mesh.position.lerp(target, 0.4);
+      });
+    }
+
+    // Window Resize Handler
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // Animation Render Loop
+    let clock = new THREE.Clock();
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const delta = clock.getDelta();
+
+      // Smooth Orbit Controls
+      controls.update();
+
+      // Turntable Auto-Rotation
+      if (turntableActive && modelGroup) {
+        modelGroup.rotation.y += delta * 0.45;
+      }
+
+      // Exploded View Smooth Lerp
+      const activeObj = conceptSubGroups[currentConceptId];
+      if (activeObj) {
+        activeObj.parts.forEach(part => {
+          const target = explodedActive ? part.offset : new THREE.Vector3(0, 0, 0);
+          part.mesh.position.lerp(target, 0.1);
+        });
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    // Toast Notification Utility
+    let toastTimeout = null;
+    function showToast(message) {
+      toastText.innerText = message;
+      toast.classList.add('show');
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.remove('show');
+      }, 3500);
+    }
+
+    // Event Listeners
+    conceptBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = parseInt(btn.getAttribute('data-id'));
+        switchConcept(id);
+      });
+    });
+
+    btnTurntable.addEventListener('click', () => {
+      turntableActive = !turntableActive;
+      btnTurntable.classList.toggle('active', turntableActive);
+    });
+
+    btnExploded.addEventListener('click', () => {
+      explodedActive = !explodedActive;
+      btnExploded.classList.toggle('active', explodedActive);
+      applyExplodedTransform(explodedActive);
+    });
+
+    btnWireframe.addEventListener('click', () => {
+      wireframeActive = !wireframeActive;
+      btnWireframe.classList.toggle('active', wireframeActive);
+      scene.traverse(child => {
+        if (child.isMesh && child.material && !child.material.isShadowMaterial) {
+          child.material.wireframe = wireframeActive;
+        }
+      });
+    });
+
+    btnReset.addEventListener('click', () => {
+      controls.reset();
+      camera.position.set(0, 3.5, 6.5);
+      controls.target.set(0, 0, 0);
+      modelGroup.rotation.set(0, 0, 0);
+    });
+
+    selectBtn.addEventListener('click', () => {
+      const data = CONCEPTS_DATA[currentConceptId];
+      localStorage.setItem('aircursor_selected_concept', currentConceptId);
+      setSelectBtnState(true);
+      showToast(`${data.name} selected as your primary AirCursor companion remote!`);
+    });
+
+    // Start App
+    window.addEventListener('DOMContentLoaded', () => {
+      initThree();
+      animate();
+    });
+  </script>
+</body>
+</html>
+

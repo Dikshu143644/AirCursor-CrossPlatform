@@ -1,0 +1,30 @@
+services:
+  aircursor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: aircursor:latest
+    container_name: aircursor-crossplatform
+    restart: unless-stopped
+    ports:
+      - "8765:8765"        # Web Remote PWA & REST API
+      - "4242:4242/udp"    # OpenTrack / AirPods IMU UDP Stream
+      - "6080:6080"        # noVNC HTML5 Web Virtual Display
+    environment:
+      - AUTORUN=true
+      - MODE=synthetic     # options: synthetic, airpods, camera
+      - HTTP_PORT=8765
+      - UDP_PORT=4242
+      - NOVNC_PORT=6080
+      - ENABLE_NOVNC=true
+      - DISPLAY=:99
+      - SCREEN_WIDTH=1920
+      - SCREEN_HEIGHT=1080
+    volumes:
+      - ./config:/app/config
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8765/status || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s

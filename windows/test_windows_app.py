@@ -157,6 +157,7 @@ class TestSensorReceiver(unittest.TestCase):
             port=42429, on_sample=lambda s: samples.append(s)
         )
         receiver.start()
+        time.sleep(0.05)
 
         # Send test OpenTrack 6-double packet
         # x, y, z in cm, yaw=15.0 deg, pitch=-10.0 deg, roll=5.0 deg
