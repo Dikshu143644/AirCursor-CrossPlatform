@@ -362,8 +362,6 @@ class WebRemoteRequestHandler(BaseHTTPRequestHandler):
         is_masked = bool(b1 & 0x80)
         plen = b1 & 0x7F
 
-        if plen > 65536:
-            return None
         if plen == 126:
             ext = recv_exact(2)
             if not ext:
@@ -374,6 +372,11 @@ class WebRemoteRequestHandler(BaseHTTPRequestHandler):
             if not ext:
                 return None
             plen = struct.unpack("!Q", ext)[0]
+
+        # Enforce the maximum after decoding the extended length field.
+        # This also rejects unbounded 64-bit frame lengths before allocation/read.
+        if plen > 65536:
+            return None
 
         mask_key = None
         if is_masked:
