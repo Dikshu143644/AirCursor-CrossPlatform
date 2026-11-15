@@ -307,6 +307,14 @@ class OverlayController:
             | WS_EX_NOACTIVATE
         )
 
+        # Attach thread to interactive user desktop
+        try:
+            h_desk = user32.OpenDesktopW("Default", 0, False, 0x10000000)
+            if h_desk:
+                user32.SetThreadDesktop(h_desk)
+        except Exception:
+            pass
+
         # 1. 72x72 Floating Dwell Popup Window (centered around mouse cursor)
         self._dwell_hwnd = user32.CreateWindowExW(
             ex_style,

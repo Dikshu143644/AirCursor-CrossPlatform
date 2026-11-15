@@ -22,6 +22,12 @@ import threading
 import time
 from typing import Optional
 
+# Guard against None stdout/stderr in pythonw.exe or non-console launches
+if sys.stdout is None:
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, "w", encoding="utf-8")
+
 # Ensure packages are discoverable
 ROOT_DIR = Path(__file__).resolve().parent.parent
 WINDOWS_DIR = Path(__file__).resolve().parent
@@ -35,6 +41,24 @@ from app_controller import AppController, TrackingMode
 from control_center import ControlCenterGUI
 from sensor_receiver import BluetoothAirPodsHelper
 from tray_icon import TrayIcon
+
+
+def attach_to_user_desktop() -> bool:
+    """Ensures process and thread attach to the user's interactive desktop (WinSta0\\Default)."""
+    if sys.platform != "win32":
+        return False
+    try:
+        import ctypes
+        user32 = ctypes.windll.user32
+        h_winsta = user32.OpenWindowStationW("WinSta0", False, 0x10000000)
+        if h_winsta:
+            user32.SetProcessWindowStation(h_winsta)
+        h_desk = user32.OpenDesktopW("Default", 0, False, 0x10000000)
+        if h_desk:
+            return bool(user32.SetThreadDesktop(h_desk))
+    except Exception:
+        pass
+    return False
 
 
 def get_default_config_path() -> Path:
@@ -77,6 +101,7 @@ def print_banner() -> None:
 
 
 def main() -> None:
+    attach_to_user_desktop()
     parser = argparse.ArgumentParser(
         description="AirCursor: AirPods Head Tracking Mouse Controller for Windows"
     )
@@ -320,6 +345,7 @@ def main() -> None:
 
     else:
         # GUI Control Center mode (Default)
+        attach_to_user_desktop()
         gui_app = ControlCenterGUI(
             controller=controller,
             config_path=config_path,

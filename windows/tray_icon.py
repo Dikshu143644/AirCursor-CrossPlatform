@@ -172,6 +172,12 @@ class TrayIcon:
             shell32.Shell_NotifyIconW(NIM_MODIFY, ctypes.byref(self._nid))
 
     def _tray_thread(self, ready: threading.Event) -> None:
+        try:
+            h_desk = user32.OpenDesktopW("Default", 0, False, 0x10000000)
+            if h_desk:
+                user32.SetThreadDesktop(h_desk)
+        except Exception:
+            pass
         hinstance = kernel32.GetModuleHandleW(None)
 
         def _wnd_proc(hwnd: int, msg: int, wparam: int, lparam: int) -> int:

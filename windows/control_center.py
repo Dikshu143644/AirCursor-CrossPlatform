@@ -122,11 +122,33 @@ class ControlCenterGUI:
         self.tray = tray
         self.on_exit_cb = on_exit
 
+        # Attach to user's interactive desktop WinSta0\Default
+        try:
+            import ctypes
+            user32 = ctypes.windll.user32
+            h_winsta = user32.OpenWindowStationW("WinSta0", False, 0x10000000)
+            if h_winsta:
+                user32.SetProcessWindowStation(h_winsta)
+            h_desk = user32.OpenDesktopW("Default", 0, False, 0x10000000)
+            if h_desk:
+                user32.SetThreadDesktop(h_desk)
+        except Exception:
+            pass
+
         self.root = tk.Tk()
         self.root.title("AirCursor Control Center")
         self.root.geometry("520x720")
         self.root.minsize(480, 680)
         self.root.configure(bg="#121214")
+
+        # Bring window to foreground on launch
+        try:
+            self.root.lift()
+            self.root.attributes("-topmost", True)
+            self.root.after_idle(self.root.attributes, "-topmost", False)
+            self.root.focus_force()
+        except Exception:
+            pass
 
         # Set taskbar icon if available
         try:
