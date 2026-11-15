@@ -1,125 +1,61 @@
 # AirCursor: Cross-Platform Suite (Windows, Linux, Android)
 
-High-precision head-tracking cursor and hands-free gesture control powered by Apple AirPods (AirPods Pro, AirPods Max, AirPods 3/4) and OpenTrack-compatible motion sensors.
+High-precision head-tracking cursor and hands-free gesture control powered by Apple AirPods and local vision / touch / gyroscope input.
 
-Originally created for macOS by [Muhammad Afham](https://github.com/m-afham/AirCursor), this repository contains the complete **reverse-engineered and recoded cross-platform suite** targeting:
-* **Windows 10 / 11** (Native Win32 input, UI Automation smart dwell, transparent click-through HUD)
-* **Linux** (BlueZ L2CAP MTU 2582 Apple RemoteHID/AAP stream + kernel `/dev/uinput` mouse)
-* **Android** (Kotlin `AccessibilityService` tap dispatch + `WindowManager` overlay)
-* **Core Engine** (Pure Python 3, zero external dependencies, 100% test coverage)
+This repository contains the AirCursor cross-platform suite:
+- **Windows 10 / 11:** native Win32 input, tray controls, HUD, hotkeys and local camera fallback.
+- **Linux:** BlueZ AirPods input and /dev/uinput cursor injection.
+- **Android:** Accessibility Service companion and device motion support.
+- **Core engine:** motion differentiation, pointer mapping, gestures, dwell and source arbitration.
+- **Universal remote:** mobile PWA touchpad and phone gyroscope over HTTP/WebSocket.
+- **Deployment:** Docker, offline packaging and Kubernetes manifests.
+- **Hardware concepts:** five procedural Blender remote designs with render and export assets.
 
----
+## Secure mobile pairing
 
-## Architecture & Reverse-Engineered Algorithms
+The Web Remote is protected by a random bearer token.
 
-AirCursor transforms AirPods IMU telemetry (accelerometer + gyroscope) into an intuitive, drift-free virtual mouse:
+1. Start AirCursor on the host computer.
+2. On Windows desktop mode, open **http://127.0.0.1:8765/pair** on the host PC and scan the QR code from the phone.
+3. For Docker/headless mode, copy the token printed by **docker logs aircursor**, open **http://HOST-LAN-IP:8765** on the phone, and enter the token when prompted.
+4. Keep the token private. Restart the process to rotate an automatically generated token.
 
-```
-[AirPods IMU Sensors] (25Hz - 210Hz)
-        │
-        ▼
-[Motion Differentiator] (Angle unwrapping, gap rejection 2ms - 250ms)
-        │
-        ▼
-[Pointer Mapper] (Tremor deadzone 3°/s, non-linear acceleration boost up to 3x)
-        │
-        ▼
-[120Hz Pointer Smoother] (Frame-rate independent exponential interpolation: α = 1 - s^(dt*60))
-        │
-        ├──▶ [Cursor History Ring Buffer] (Stores 360 timestamped coordinates)
-        │           │ (Pre-gesture rollback)
-        │           ▼
-        ├──▶ [Gesture Detector] (Shape-based Nod dip/return, 4-swing Shake, 22° Roll Tilt)
-        │           │
-        │           ▼
-        ├──▶ [Smart Dwell Detector] (16px radius, 0.8s hold + UI Accessibility Probe)
-        │
-        ▼
-[Event Synthesizer] (Win32 SendInput / Linux uinput / Android AccessibilityService)
-```
+The QR endpoint is host-local only. The status endpoint remains read-only; all control endpoints require bearer authentication. Use only a trusted LAN, VPN, or TLS-protected Ingress.
 
-### Key Technical Innovations
-1. **Velocity ("Ratchet") Mapping**: Instead of absolute angle mapping which causes neck strain, AirCursor calculates head angular velocity ($\text{deg/s}$) at $28\text{ px/deg}$, allowing you to navigate across multi-monitor setups effortlessly.
-2. **Pre-Gesture Coordinate Rollback**: When a nod or shake is detected, the cursor jumps back to where you were looking $60\text{ ms}$ **before** the gesture started, eliminating the pointer displacement caused by head movement.
-3. **Smart Hover / Dwell Click**: Clicks only when resting on interactive UI elements (buttons, links, textboxes, tabs). Resting on plain reading text never triggers accidental clicks.
-4. **AirPods Stem Squeezes (AVRCP Media Keys)**:
-   * **1 press** (Play/Pause) $\to$ Left Click
-   * **2 presses** (Next Track) $\to$ Right Click
-   * **3 presses** (Prev Track) $\to$ Toggle Scroll Mode
+## Windows quick start
 
----
+Double-click **Start-AirCursor.bat**, or:
 
-## Windows Quick Start
-
-### 1. One-Click Launcher
-Double-click [`Start-AirCursor.bat`](Start-AirCursor.bat) to launch the interactive menu.
-
-### 2. Command Line Usage
-```powershell
+~~~powershell
 cd windows
-
-# Run in Live Mode (waits for AirPods / OpenTrack UDP on port 4242):
 python main.py --tray
+~~~
 
-# Run in Demo / Simulation Mode:
-python main.py --synthetic --tray
+## Linux quick start
 
-# View Paired AirPods & Bluetooth Setup Guide:
-python main.py --setup-info
-```
-
-### Global Hotkeys
-* `Ctrl + Alt + T` : Pause / Resume Tracking
-* `Ctrl + Alt + S` : Toggle Scroll Mode / Pointer Mode
-* `Ctrl + Alt + C` : Recenter Cursor
-* `Ctrl + Alt + D` : Toggle Left-Mouse Drag Lock
-* `Ctrl + C`       : Exit AirCursor
-
----
-
-## Linux Quick Start
-
-Linux uses direct BlueZ L2CAP sockets with an expanded MTU of **2,582 bytes** to handle Apple's RemoteHID / `devmotion6` descriptor without truncation, and `/dev/uinput` for kernel mouse injection.
-
-```bash
+~~~bash
 cd linux
-
-# Grant uinput permissions (if needed):
-sudo usermod -a -G input $USER
-
-# Run with paired AirPods:
 python3 main_linux.py --scan
-```
+~~~
 
----
+## Tests
 
-## Android Quick Start
+Install development dependencies and run platform-appropriate suites:
 
-The Android implementation in [`android/`](android/) is a complete Android Studio Gradle project:
-* **`AirCursorAccessibilityService`**: Injects cursor movement and simulated clicks using `dispatchGesture()` without needing root.
-* **`DwellOverlayService`**: Renders a floating, click-through circular dwell progress ring via `WindowManager`.
-* **`AirPodsMotionService`**: Connects to AirPods over Bluetooth L2CAP channel `0x1001` with seamless fallback to the phone's internal rotation vector sensor (`Sensor.TYPE_ROTATION_VECTOR`).
+~~~bash
+python -m pip install -e ".[dev]"
+python -m unittest tests.test_core tests.test_web_remote tests.test_devops tests.test_cad_blender -v
+~~~
 
----
+Windows-specific suites should be run on Windows; Linux input tests should be run on Linux. CI is configured for Python 3.10–3.12 on Ubuntu and Windows.
 
-## Verification & Test Results
+## Deployment
 
-Run tests with standard `unittest`:
+See **docs/OFFLINE_GUIDE.md** for Docker, Compose, Kubernetes, offline distribution and secure pairing instructions.
 
-```bash
-# Core Engine (50 tests):
-python -m unittest tests/test_core.py
+## 3D remote concepts
 
-# Windows Native Suite (13 tests):
-python windows/test_windows_app.py
-
-# Linux Native Suite (10 tests):
-PYTHONPATH=linux python -m unittest linux/test_linux.py
-```
-
-**Overall Status: 73/73 tests passing (100% OK)**
-
----
+See **cad/REMOTE_CONCEPTS.md** and **cad/remote_showcase.html** for the five hardware concepts and model exports.
 
 ## License
 
