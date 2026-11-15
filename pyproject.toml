@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "aircursor_core"
 version = "1.0.6"
-description = "Pure Python cross-platform Core Engine for AirCursor (Windows, Linux, Android)"
+description = "Cross-platform motion and input core for AirCursor (Windows, Linux, macOS, Android)"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
@@ -26,6 +26,9 @@ vision = [
     "numpy>=1.24",
     "opencv-python-headless>=4.8",
 ]
+macos = [
+    "pyobjc-framework-Quartz>=10.0; sys_platform == 'darwin'",
+]
 
 [tool.setuptools.packages.find]
-include = ["aircursor_core*"]
+include = ["aircursor_core*", "macos*"]
