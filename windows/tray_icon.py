@@ -25,10 +25,16 @@ NIM_DELETE = 0x00000002
 NIF_MESSAGE = 0x00000001
 NIF_ICON = 0x00000002
 NIF_TIP = 0x00000004
+NIF_INFO = 0x00000010
+
+NIIF_INFO = 0x00000001
+NIIF_WARNING = 0x00000002
+NIIF_ERROR = 0x00000003
 
 WM_USER = 0x0400
 WM_TRAYICON = WM_USER + 20
 WM_LBUTTONUP = 0x0202
+WM_LBUTTONDBLCLK = 0x0203
 WM_RBUTTONUP = 0x0205
 WM_QUIT = 0x0012
 
@@ -94,6 +100,7 @@ class TrayIcon:
     """Windows Notification Area System Tray Icon."""
 
     CLASS_NAME = "AirCursorTrayIconWindow"
+    ID_OPEN_GUI = 1000
     ID_TOGGLE_TRACKING = 1001
     ID_TOGGLE_MODE = 1002
     ID_RECENTER = 1003
@@ -107,6 +114,7 @@ class TrayIcon:
         on_exit: Optional[Callable[[], None]] = None,
         is_tracking_fn: Optional[Callable[[], bool]] = None,
         get_mode_fn: Optional[Callable[[], str]] = None,
+        on_open_gui: Optional[Callable[[], None]] = None,
     ):
         self.on_toggle_tracking = on_toggle_tracking
         self.on_toggle_mode = on_toggle_mode
@@ -114,6 +122,7 @@ class TrayIcon:
         self.on_exit = on_exit
         self.is_tracking_fn = is_tracking_fn
         self.get_mode_fn = get_mode_fn
+        self.on_open_gui = on_open_gui
 
         self._hwnd: Optional[int] = None
         self._thread: Optional[threading.Thread] = None
@@ -153,13 +162,24 @@ class TrayIcon:
             self._nid.uFlags = NIF_TIP
             shell32.Shell_NotifyIconW(NIM_MODIFY, ctypes.byref(self._nid))
 
+    def show_balloon(self, title: str, text: str) -> None:
+        """Displays a Windows system notification balloon/toast."""
+        if self._hwnd:
+            self._nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_INFO
+            self._nid.szInfo = text[:255]
+            self._nid.szInfoTitle = title[:63]
+            self._nid.dwInfoFlags = NIIF_INFO
+            shell32.Shell_NotifyIconW(NIM_MODIFY, ctypes.byref(self._nid))
+
     def _tray_thread(self, ready: threading.Event) -> None:
         hinstance = kernel32.GetModuleHandleW(None)
 
         def _wnd_proc(hwnd: int, msg: int, wparam: int, lparam: int) -> int:
             if msg == WM_TRAYICON:
-                if lparam == WM_LBUTTONUP:
-                    if self.on_toggle_tracking:
+                if lparam in (WM_LBUTTONUP, WM_LBUTTONDBLCLK):
+                    if self.on_open_gui:
+                        self.on_open_gui()
+                    elif self.on_toggle_tracking:
                         self.on_toggle_tracking()
                     return 0
                 elif lparam == WM_RBUTTONUP:
@@ -167,7 +187,9 @@ class TrayIcon:
                     return 0
             elif msg == 0x0111:  # WM_COMMAND
                 cmd_id = wparam & 0xFFFF
-                if cmd_id == self.ID_TOGGLE_TRACKING and self.on_toggle_tracking:
+                if cmd_id == self.ID_OPEN_GUI and self.on_open_gui:
+                    self.on_open_gui()
+                elif cmd_id == self.ID_TOGGLE_TRACKING and self.on_toggle_tracking:
                     self.on_toggle_tracking()
                 elif cmd_id == self.ID_TOGGLE_MODE and self.on_toggle_mode:
                     self.on_toggle_mode()
@@ -230,6 +252,10 @@ class TrayIcon:
 
     def _show_context_menu(self, hwnd: int) -> None:
         hmenu = user32.CreatePopupMenu()
+
+        if self.on_open_gui:
+            user32.AppendMenuW(hmenu, MF_STRING, self.ID_OPEN_GUI, "Open Control Center")
+            user32.AppendMenuW(hmenu, MF_SEPARATOR, 0, None)
 
         is_tracking = self.is_tracking_fn() if self.is_tracking_fn else True
         mode_str = self.get_mode_fn() if self.get_mode_fn else "pointer"

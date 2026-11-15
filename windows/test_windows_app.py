@@ -47,6 +47,9 @@ from sensor_receiver import (
     SyntheticSensorGenerator,
 )
 from stem_listener import StemListener
+import autostart
+from control_center import ControlCenterGUI
+import installer
 
 
 class TestEventSynthesizer(unittest.TestCase):
@@ -229,12 +232,25 @@ class TestAppControllerIntegration(unittest.TestCase):
             enable_stem_hook=False,
         )
         controller.start()
+        # Standby State Machine: starts paused
+        self.assertFalse(controller.tracking_enabled)
+
+        # Explicitly enable tracking to run execution pipeline
+        controller.set_tracking(True, announce=False)
         self.assertTrue(controller.tracking_enabled)
 
         # Wait for simulated telemetry frames to flow
         time.sleep(0.4)
         self.assertGreater(controller._sample_count, 10)
         self.assertTrue(controller.motion_streaming)
+
+        # Test Human-Input Arbiter: physical mouse movement yields control
+        cur_x, cur_y = controller._cursor.x, controller._cursor.y
+        controller.synth.move_to(cur_x + 50, cur_y + 50)
+        controller._sync_cursor_with_system()
+        self.assertGreater(controller._human_override_until, time.time())
+        # Clear override timer so remaining pipeline tests proceed
+        controller._human_override_until = 0.0
 
         # Test mode toggle
         controller.set_mode(TrackingMode.SCROLL)
@@ -283,6 +299,131 @@ class TestSettingsPersistence(unittest.TestCase):
         self.assertAlmostEqual(s2.pointer.smoothing, 0.72, places=3)
         self.assertAlmostEqual(s2.dwell.duration, 0.65, places=3)
         self.assertAlmostEqual(s2.gestures.nod_amplitude, 6.8, places=3)
+
+
+class TestAutostart(unittest.TestCase):
+    def test_autostart_toggle(self):
+        initial = autostart.is_autostart_enabled()
+        # Test enable
+        ok = autostart.enable_autostart("--tray")
+        self.assertTrue(ok)
+        self.assertTrue(autostart.is_autostart_enabled())
+        cmd = autostart.get_autostart_command()
+        self.assertIsNotNone(cmd)
+        self.assertIn("pythonw", cmd.lower())
+        self.assertIn("main.py", cmd)
+
+        # Test disable
+        ok_dis = autostart.disable_autostart()
+        self.assertTrue(ok_dis)
+        self.assertFalse(autostart.is_autostart_enabled())
+
+        # Restore initial state if it was enabled
+        if initial:
+            autostart.enable_autostart("--tray")
+
+
+class TestControlCenterGUI(unittest.TestCase):
+    def test_gui_lifecycle_and_controls(self):
+        settings = AppSettings()
+        controller = AppController(
+            settings=settings,
+            use_synthetic=True,
+            show_overlay=False,
+            enable_stem_hook=False,
+        )
+        controller.start()
+
+        cfg_file = Path("test_control_center_cfg.json")
+        gui = ControlCenterGUI(
+            controller=controller,
+            config_path=cfg_file,
+            tray=None,
+        )
+
+        try:
+            # Process initial events
+            gui.root.update()
+
+            # Verify widgets and badges
+            self.assertIsNotNone(gui.badge_lbl.cget("text"))
+            self.assertIsNotNone(gui.master_btn.cget("text"))
+
+            # Test slider mutations update settings
+            gui.slider_sens.set(1.75)
+            gui._on_sensitivity_change("1.75")
+            self.assertAlmostEqual(controller.settings.pointer.sensitivity, 1.75, places=2)
+
+            gui.slider_dwell.set(1.20)
+            gui._on_dwell_duration_change("1.20")
+            self.assertAlmostEqual(controller.settings.dwell.duration, 1.20, places=2)
+
+            gui.slider_nod.set(7.5)
+            gui._on_nod_amplitude_change("7.5")
+            self.assertAlmostEqual(controller.settings.gestures.nod_amplitude, 7.5, places=1)
+
+            # Test feature checkbox toggles
+            gui.var_dwell_click.set(True)
+            gui._on_feature_toggle()
+            self.assertTrue(controller.settings.dwell.enabled)
+
+            gui.var_nod_click.set(False)
+            gui._on_feature_toggle()
+            self.assertEqual(controller.settings.actions[Trigger.NOD], PointerAction.NONE)
+
+            gui.var_shake_pause.set(False)
+            gui._on_feature_toggle()
+            self.assertEqual(controller.settings.actions[Trigger.SHAKE], PointerAction.NONE)
+
+            # Test Master button toggle
+            initial_tracking = controller.tracking_enabled
+            gui._on_toggle_master()
+            self.assertNotEqual(controller.tracking_enabled, initial_tracking)
+
+            # Test Recenter action
+            gui._on_recenter()
+
+            # Test Save settings
+            gui._on_save_settings()
+            self.assertTrue(cfg_file.exists())
+
+            # Test minimize and restore
+            gui.minimize_to_tray()
+            gui._do_restore()
+
+            gui.root.update()
+
+        finally:
+            gui.close()
+            controller.stop()
+            if cfg_file.exists():
+                try:
+                    cfg_file.unlink()
+                except Exception:
+                    pass
+
+
+class TestInstaller(unittest.TestCase):
+    def test_installer_shortcut_lifecycle(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            lnk = Path(tmpdir) / "AirCursorTest.lnk"
+            target = autostart.get_pythonw_path()
+            main_py = autostart.get_main_script_path()
+
+            ok = installer.create_windows_shortcut(
+                shortcut_path=lnk,
+                target_path=target,
+                arguments=f'"{main_py}"',
+                description="AirCursor Control Center",
+            )
+            self.assertTrue(ok)
+            self.assertTrue(lnk.exists())
+
+            # Verify safe deletion
+            deleted = installer._safe_delete(lnk)
+            self.assertTrue(deleted)
+            self.assertFalse(lnk.exists())
 
 
 def run_tests():

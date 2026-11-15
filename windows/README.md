@@ -47,14 +47,24 @@ High-precision head tracking cursor and hands-free gesture control for Microsoft
    - **Cursor Rollback**: When a nod or shake is detected, rolls the cursor back to where the user was looking 60ms *before* the gesture began, ensuring laser-accurate clicks.
    - Pointer and Scroll tracking modes.
 
-7. **System Tray & Global Hotkeys (`main.py`, `tray_icon.py`, `hotkey_manager.py`)**:
+7. **Modern Dark Control Center GUI & System Tray (`control_center.py`, `tray_icon.py`, `autostart.py`)**:
+   - Sleek Tkinter/ttk dark-themed desktop dashboard:
+     - Header AirPods Pro status badge (`AirPods Pro 41424f2041e4 Connected`).
+     - Big Master Start / Pause Toggle Button.
+     - Real-time telemetry meters (Pitch, Yaw, Roll, FPS, Mode).
+     - Live tuning sliders: Pointer Sensitivity (0.4x - 2.5x), Dwell Duration (0.5s - 2.0s), Nod Amplitude (3° - 12°).
+     - Accessibility checkboxes: Hover Dwell Click, Nod to Click, Shake to Pause, Start with Windows.
+     - Action buttons: Recenter Cursor (`Ctrl+Alt+C`), Save Settings.
+     - On close (X button), minimizes silently to System Tray with balloon notification.
    - Global Hotkeys:
      - `Ctrl + Alt + T`: Pause / Resume Tracking
      - `Ctrl + Alt + S`: Toggle Scroll / Pointer Mode
      - `Ctrl + Alt + C`: Recenter Cursor
      - `Ctrl + Alt + D`: Toggle Left Mouse Drag Lock
      - `Ctrl + C`: Exit Application
-   - Windows notification area tray icon with context menu.
+   - Windows notification area tray icon with context menu to restore Control Center or toggle tracking.
+   - Windows boot autostart manager (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run\AirCursor`).
+   - One-click Installer (`Install-AirCursor.bat`) & Uninstaller (`Uninstall-AirCursor.bat`) creating Start Menu and Desktop shortcuts.
 
 ---
 

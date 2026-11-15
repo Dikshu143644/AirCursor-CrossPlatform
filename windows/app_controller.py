@@ -5,6 +5,8 @@ Full 120Hz head tracking orchestrator for Windows matching macOS AppController l
 - Differentiates attitude into angular rates (MotionDifferentiator)
 - Maps rates to screen velocity with deadzone, sensitivity, and acceleration (PointerMapper)
 - Smooths motion with frame-rate independent exponential filter (PointerSmoother)
+- Human-Input Arbiter: yields 100% control to physical mouse with 1.5s cooldown when moved
+- Standby State Machine: starts in paused/standby mode; dwell click disabled by default
 - Detects deliberate head gestures (Nod, Shake, Tilt) with automatic cursor drift rollback
 - Detects dwell resting spots and smart interactive probe checks (ClickableProbe)
 - Injects inputs via Win32 SendInput (EventSynthesizer)
@@ -64,18 +66,27 @@ class AppController:
         show_overlay: bool = True,
         enable_stem_hook: bool = True,
     ):
-        self.settings: AppSettings = settings or AppSettings()
+        # Standby State Machine: default dwell clicking to False unless explicitly configured
+        if settings is None:
+            self.settings: AppSettings = AppSettings()
+            self.settings.dwell.enabled = False
+        else:
+            self.settings = settings
+
         self.use_synthetic: bool = use_synthetic
         self.udp_port: int = udp_port
         self.udp_host: str = udp_host
         self.show_overlay: bool = show_overlay
         self.enable_stem_hook: bool = enable_stem_hook
 
-        # State
+        # State: Standby State Machine starts paused by default
         self.tracking_enabled: bool = False
         self.mode: TrackingMode = TrackingMode.POINTER
         self.is_dragging: bool = False
         self.motion_streaming: bool = False
+
+        # Human-Input Arbiter: physical mouse movement yields control for 1.5 seconds
+        self._human_override_until: float = 0.0
 
         # Live telemetry readout for UI / Console
         self.live_yaw: float = 0.0
@@ -127,8 +138,8 @@ class AppController:
         # Multi-monitor bounds
         self._vx, self._vy, self._vw, self._vh = self.synth.get_screen_bounds()
 
-    def start(self) -> None:
-        """Starts the full AirCursor engine."""
+    def start(self, start_tracking: bool = False) -> None:
+        """Starts the full AirCursor engine. Starts paused by default (Standby State Machine)."""
         if self._running:
             return
         self._running = True
@@ -163,8 +174,11 @@ class AppController:
         )
         self._frame_thread.start()
 
-        # By default enable tracking
-        self.set_tracking(True, announce=True)
+        # Standby State Machine: Starts paused by default unless explicitly requested
+        if start_tracking:
+            self.set_tracking(True, announce=True)
+        else:
+            self.set_tracking(False, announce=False)
 
     def stop(self) -> None:
         """Stops the engine and releases all resources."""
@@ -267,10 +281,14 @@ class AppController:
         self._sample_count += 1
         self.motion_streaming = True
 
-        # Process deliberate gestures
+        # Process deliberate gestures only if tracking is enabled and not in human override
         enabled_gestures = self.settings.actions.enabled_head_gestures
         gesture_event = self.gestures.process(sample, enabled=enabled_gestures)
-        if gesture_event:
+        if (
+            gesture_event
+            and self.tracking_enabled
+            and (now >= self._human_override_until)
+        ):
             # Calculate gesture start time in host clock
             start_host = gesture_event.start_time + (now - sample.timestamp)
             trigger = Trigger.from_gesture(gesture_event.gesture)
@@ -288,8 +306,8 @@ class AppController:
         self.live_yaw_rate = rates.yaw
         self.live_pitch_rate = rates.pitch
 
-        # Feed target velocity to smoother
-        if self.tracking_enabled:
+        # Feed target velocity to smoother only if tracking is enabled and not in human override
+        if self.tracking_enabled and (now >= self._human_override_until):
             target_vel = PointerMapper.cursor_velocity(rates, self.settings.pointer)
             self.smoother.set_target(target_vel, now)
 
@@ -321,8 +339,12 @@ class AppController:
             if self._cursor is None:
                 continue
 
+            # Human-Input Arbiter: While now < _human_override_until, head tracking
+            # yields 100% control to the physical mouse!
+            is_human_override = now < self._human_override_until
+
             # Process movement according to active mode
-            if self.tracking_enabled:
+            if self.tracking_enabled and not is_human_override:
                 if self.mode == TrackingMode.POINTER:
                     if delta.length > 0.01:
                         next_x = self._cursor.x + delta.x
@@ -348,13 +370,16 @@ class AppController:
                         self._scroll_remainder -= Vec2(float(sx), float(sy))
                         sign = 1 if self.settings.pointer.invert_scroll else -1
                         self.synth.scroll(vertical=sy * sign, horizontal=sx * sign)
+            else:
+                self._last_frame_delta = 0.0
 
             # Record position in cursor history
             self.history.append(self._cursor, now)
 
-            # Dwell / Hover click detection
+            # Dwell / Hover click detection (only active when tracking enabled and no human override)
             if (
                 self.tracking_enabled
+                and not is_human_override
                 and self.mode == TrackingMode.POINTER
                 and self.settings.dwell.enabled
                 and self.settings.actions[Trigger.DWELL] != PointerAction.NONE
@@ -415,10 +440,15 @@ class AppController:
         is_ours = any(actual.distance(p) <= tolerance for p in self._last_posted)
 
         if not is_ours:
+            # Human-Input Arbiter: Physical mouse movement detected!
+            # Set 1.5s override cooldown, reset smoother and dwell immediately.
+            now = time.time()
+            self._human_override_until = now + 1.5
             self._cursor = actual
             self._last_posted = [actual]
             self.smoother.reset()
             self.dwell.reset()
+            self.overlay.hide()
 
     def _post_cursor(self, x: float, y: float) -> None:
         """Dispatches cursor move to Win32."""
@@ -435,6 +465,10 @@ class AppController:
         """Maps a trigger (Nod, Shake, StemSingle, Dwell, etc.) to its configured PointerAction."""
         action = self.settings.actions[trigger]
         if action == PointerAction.NONE:
+            return
+
+        # Suppress actions during human mouse override (except manual toggle tracking)
+        if time.time() < self._human_override_until and action != PointerAction.TOGGLE_TRACKING:
             return
 
         # Head gestures cannot pause tracking during initial calibration

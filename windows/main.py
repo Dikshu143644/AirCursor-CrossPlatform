@@ -7,7 +7,7 @@ Head-tracking mouse control using Apple AirPods on Microsoft Windows:
 - Smart Dwell Click with Windows UI Automation (UIA) probe
 - Transparent click-through HUD overlay with dwell progress ring
 - Global media key capture for AirPods stem squeezes
-- System Tray integration and global hotkeys
+- Modern Dark Control Center GUI (Tkinter) and System Tray integration
 """
 
 from __future__ import annotations
@@ -32,6 +32,7 @@ if str(WINDOWS_DIR) not in sys.path:
 
 from aircursor_core.settings import AppSettings
 from app_controller import AppController, TrackingMode
+from control_center import ControlCenterGUI
 from sensor_receiver import BluetoothAirPodsHelper
 from tray_icon import TrayIcon
 
@@ -80,6 +81,26 @@ def main() -> None:
         description="AirCursor: AirPods Head Tracking Mouse Controller for Windows"
     )
     parser.add_argument(
+        "--gui",
+        action="store_true",
+        default=None,
+        help="Launch the AirCursor Control Center GUI (default)",
+    )
+    parser.add_argument(
+        "--tray",
+        "--background",
+        dest="tray_only",
+        action="store_true",
+        help="Launch silently into Windows System Tray",
+    )
+    parser.add_argument(
+        "--cli",
+        "--no-gui",
+        dest="cli_mode",
+        action="store_true",
+        help="Run headless in terminal console without GUI Control Center",
+    )
+    parser.add_argument(
         "--synthetic",
         action="store_true",
         help="Use synthetic sensor simulation instead of physical AirPods",
@@ -105,11 +126,6 @@ def main() -> None:
         "--no-stem",
         action="store_true",
         help="Disable media key stem click interception",
-    )
-    parser.add_argument(
-        "--tray",
-        action="store_true",
-        help="Enable Windows System Tray icon",
     )
     parser.add_argument(
         "--sensitivity",
@@ -181,7 +197,9 @@ def main() -> None:
 
     print_banner()
     print(f"[*] Configuration: {config_path}")
-    print(f"[*] Ingestion Mode: {'Synthetic Simulation' if args.synthetic else f'OpenTrack UDP ({args.bind}:{args.port})'}")
+    print(
+        f"[*] Ingestion Mode: {'Synthetic Simulation' if args.synthetic else f'OpenTrack UDP ({args.bind}:{args.port})'}"
+    )
     print(f"[*] Overlay HUD: {'Disabled' if args.no_overlay else 'Active'}")
     print(f"[*] Stem Listener: {'Disabled' if args.no_stem else 'Active'}")
 
@@ -208,61 +226,113 @@ def main() -> None:
         enable_stem_hook=not args.no_stem,
     )
 
+    # System Tray Integration
+    gui_app: Optional[ControlCenterGUI] = None
+
+    def _exit_handler():
+        if gui_app:
+            gui_app.quit_app()
+        else:
+            controller.stop()
+
     tray: Optional[TrayIcon] = None
-    if args.tray:
+    if not args.cli_mode:
         tray = TrayIcon(
             on_toggle_tracking=controller.toggle_tracking,
             on_toggle_mode=controller.toggle_mode,
             on_recenter=controller.recenter,
-            on_exit=lambda: os.kill(os.getpid(), signal.SIGINT),
+            on_exit=_exit_handler,
             is_tracking_fn=lambda: controller.tracking_enabled,
             get_mode_fn=lambda: controller.mode.value,
         )
         tray.start()
         print("[*] System Tray Icon active.")
 
-    stop_event = threading.Event()
-
-    def _sig_handler(sig, frame):
-        stop_event.set()
-
-    signal.signal(signal.SIGINT, _sig_handler)
-    if hasattr(signal, "SIGBREAK"):
-        signal.signal(signal.SIGBREAK, _sig_handler)
-
     controller.start()
 
-    try:
-        while not stop_event.is_set():
-            time.sleep(0.2)
-            # Format live dashboard status line
-            status = "TRACKING" if controller.tracking_enabled else "PAUSED  "
-            status_color = "\033[92m" if controller.tracking_enabled else "\033[93m"
-            mode_str = controller.mode.value.upper()
-            stream_str = "STREAMING" if controller.motion_streaming else "WAITING  "
+    # Determine execution mode: CLI terminal loop vs GUI Control Center
+    if args.cli_mode:
+        # CLI headless mode
+        stop_event = threading.Event()
 
-            sys.stdout.write(
-                f"\r{status_color}[{status}]\033[0m "
-                f"Mode: {mode_str:<7} | "
-                f"Sensors: {stream_str} | "
-                f"Yaw: {controller.live_yaw:>6.1f}° Pitch: {controller.live_pitch:>6.1f}° Roll: {controller.live_roll:>6.1f}° | "
-                f"FPS: {controller.live_fps:>4.0f}  "
-            )
-            sys.stdout.flush()
+        def _sig_handler(sig, frame):
+            stop_event.set()
 
+        signal.signal(signal.SIGINT, _sig_handler)
+        if hasattr(signal, "SIGBREAK"):
+            signal.signal(signal.SIGBREAK, _sig_handler)
+
+        try:
+            while not stop_event.is_set():
+                time.sleep(0.2)
+                status = "TRACKING" if controller.tracking_enabled else "PAUSED  "
+                status_color = "\033[92m" if controller.tracking_enabled else "\033[93m"
+                mode_str = controller.mode.value.upper()
+                stream_str = "STREAMING" if controller.motion_streaming else "WAITING  "
+
+                sys.stdout.write(
+                    f"\r{status_color}[{status}]\033[0m "
+                    f"Mode: {mode_str:<7} | "
+                    f"Sensors: {stream_str} | "
+                    f"Yaw: {controller.live_yaw:>6.1f}° Pitch: {controller.live_pitch:>6.1f}° Roll: {controller.live_roll:>6.1f}° | "
+                    f"FPS: {controller.live_fps:>4.0f}  "
+                )
+                sys.stdout.flush()
+
+                if tray:
+                    tooltip = f"AirCursor - {status} ({mode_str})"
+                    tray.update_tooltip(tooltip)
+
+        except KeyboardInterrupt:
+            pass
+        finally:
+            print("\n\n[*] Shutting down AirCursor...")
             if tray:
-                tooltip = f"AirCursor - {status} ({mode_str})"
-                tray.update_tooltip(tooltip)
+                tray.stop()
+            controller.stop()
+            save_settings(settings, config_path)
+            print("[*] AirCursor terminated cleanly. Have a great day!")
 
-    except KeyboardInterrupt:
-        pass
-    finally:
-        print("\n\n[*] Shutting down AirCursor...")
-        if tray:
-            tray.stop()
-        controller.stop()
-        save_settings(settings, config_path)
-        print("[*] AirCursor terminated cleanly. Have a great day!")
+    else:
+        # GUI Control Center mode (Default)
+        gui_app = ControlCenterGUI(
+            controller=controller,
+            config_path=config_path,
+            tray=tray,
+            on_exit=lambda: save_settings(settings, config_path),
+        )
+
+        # Update tray tooltip dynamically
+        def _tray_tooltip_updater():
+            while controller._running:
+                time.sleep(0.5)
+                if tray:
+                    status = "TRACKING" if controller.tracking_enabled else "PAUSED"
+                    mode_str = controller.mode.value.upper()
+                    tray.update_tooltip(f"AirCursor - {status} ({mode_str})")
+
+        tooltip_thread = threading.Thread(target=_tray_tooltip_updater, daemon=True)
+        tooltip_thread.start()
+
+        if args.tray_only:
+            # Launched in background tray mode
+            gui_app.minimize_to_tray()
+            if tray:
+                tray.show_balloon(
+                    "AirCursor Running",
+                    "AirCursor is active in the system tray. Click the icon to open Control Center.",
+                )
+
+        try:
+            gui_app.run()
+        except KeyboardInterrupt:
+            pass
+        finally:
+            if tray:
+                tray.stop()
+            controller.stop()
+            save_settings(settings, config_path)
+            print("[*] AirCursor Control Center closed cleanly.")
 
 
 if __name__ == "__main__":
