@@ -8,12 +8,18 @@ Supports manual camera toggle, tracking pause/resume, mode switching, and live t
 from __future__ import annotations
 
 import http.server
+import hmac
+import ipaddress
 import json
 import os
+import secrets
 from pathlib import Path
 import socketserver
 import threading
+import urllib.parse
 from typing import TYPE_CHECKING, Any, Dict, Optional
+
+from aircursor_core.pairing_qr import generate_qr_matrix, get_local_ip, matrix_to_html
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 
@@ -29,10 +35,14 @@ class WebRemoteServer:
         controller: AppController,
         host: str = "0.0.0.0",
         port: int = 8765,
+        access_token: Optional[str] = None,
     ):
         self.controller = controller
         self.host = host
         self.port = port
+        self.access_token = access_token or os.environ.get("AIRCURSOR_REMOTE_TOKEN") or secrets.token_urlsafe(32)
+        if len(self.access_token) < 20:
+            raise ValueError("access_token must contain at least 20 characters")
         self._server: Optional[socketserver.TCPServer] = None
         self._thread: Optional[threading.Thread] = None
         self._running: bool = False
@@ -47,6 +57,7 @@ class WebRemoteServer:
             return True
 
         controller = self.controller
+        outer = self
 
         class _Handler(http.server.BaseHTTPRequestHandler):
             def log_message(self, format: str, *args: Any) -> None:
@@ -55,7 +66,23 @@ class WebRemoteServer:
 
             def do_GET(self) -> None:
                 path = self.path.split("?")[0]
-                if path in ("/api/status", "/status"):
+                if path == "/pair":
+                    try:
+                        is_local = ipaddress.ip_address(self.client_address[0]).is_loopback
+                    except (ValueError, IndexError):
+                        is_local = False
+                    if not is_local:
+                        self._send_json({"error": "pairing QR is available from the host computer only"}, code=403)
+                        return
+                    pair_url = (
+                        f"http://{get_local_ip()}:{outer.port}/#token="
+                        + urllib.parse.quote(outer.access_token, safe="")
+                    )
+                    html = matrix_to_html(
+                        generate_qr_matrix(pair_url), pair_url, title="AirCursor Secure Pairing"
+                    )
+                    self._send_html(html)
+                elif path in ("/api/status", "/status"):
                     self._send_json(self._get_status())
                 elif path.startswith("/cad/"):
                     rel = path[len("/cad/"):].lstrip("/")
@@ -76,7 +103,6 @@ class WebRemoteServer:
                         self.send_response(200)
                         self.send_header("Content-Type", mime)
                         self.send_header("Content-Length", str(len(data)))
-                        self.send_header("Access-Control-Allow-Origin", "*")
                         self.end_headers()
                         self.wfile.write(data)
                     else:
@@ -88,6 +114,15 @@ class WebRemoteServer:
 
             def do_POST(self) -> None:
                 path = self.path.split("?")[0]
+                scheme, separator, supplied = self.headers.get("Authorization", "").partition(" ")
+                authorized = (
+                    bool(separator)
+                    and scheme.lower() == "bearer"
+                    and hmac.compare_digest(supplied.strip(), outer.access_token)
+                )
+                if not authorized:
+                    self._send_json({"error": "unauthorized", "message": "Enter the host pairing token."}, code=401)
+                    return
                 try:
                     content_len = int(self.headers.get("Content-Length", 0))
                     body = self.rfile.read(content_len) if content_len > 0 else b"{}"
@@ -148,7 +183,6 @@ class WebRemoteServer:
                 body = json.dumps(data).encode("utf-8")
                 self.send_response(code)
                 self.send_header("Content-Type", "application/json")
-                self.send_header("Access-Control-Allow-Origin", "*")
                 self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
                 self.wfile.write(body)
@@ -184,12 +218,23 @@ class WebRemoteServer:
         .btn-camera { background: #7c3aed; border-color: #a78bfa; grid-column: span 2; }
         .btn-camera:hover { background: #6d28d9; }
         .stats { background: #0f172a; border-radius: 8px; padding: 12px; font-size: 13px; color: #94a3b8; text-align: left; }
+        .pairing { text-align:left; margin:0 0 18px; }
+        .pairing label { display:block; color:#bae6fd; font-size:13px; margin-bottom:6px; }
+        .pairing input { width:100%; padding:12px; border-radius:8px; border:1px solid #475569; background:#0f172a; color:#fff; margin-bottom:8px; }
+        .pairing button { width:100%; background:#075985; }
+        .pairing p { color:#94a3b8; font-size:11px; margin-top:6px; }
     </style>
 </head>
 <body>
     <div class="card">
         <h1>AirCursor Web Remote</h1>
         <div id="statusBadge" class="badge badge-paused">Connecting...</div>
+        <div class="pairing">
+            <label for="pairingToken">Host pairing token</label>
+            <input id="pairingToken" type="password" autocomplete="one-time-code" placeholder="Scan the host QR or paste token">
+            <button id="savePairing" type="button">Connect this device</button>
+            <p>Keep this control token private. It grants access to the host computer.</p>
+        </div>
         <div class="btn-grid">
             <button id="btnTracking" class="btn-primary" onclick="postAction('/api/tracking/toggle')">Toggle Tracking</button>
             <button id="btnCamera" class="btn-camera" onclick="postAction('/api/camera/toggle')">Toggle Camera Vision</button>
@@ -207,6 +252,24 @@ class WebRemoteServer:
         </a>
     </div>
     <script>
+        const fragmentToken = new URLSearchParams(location.hash.replace(/^#/, '')).get('token');
+        let accessToken = fragmentToken || sessionStorage.getItem('aircursor-access-token') || '';
+        const pairingInput = document.getElementById('pairingToken');
+        pairingInput.value = accessToken;
+        if (accessToken && location.hash) {
+            sessionStorage.setItem('aircursor-access-token', accessToken);
+            history.replaceState(null, '', location.pathname + location.search);
+        }
+        document.getElementById('savePairing').addEventListener('click', () => {
+            accessToken = pairingInput.value.trim();
+            if (accessToken.length < 20) {
+                alert('Enter the complete pairing token shown on the AirCursor host.');
+                return;
+            }
+            sessionStorage.setItem('aircursor-access-token', accessToken);
+            fetchStatus();
+        });
+
         async function fetchStatus() {
             try {
                 const res = await fetch('/api/status');
@@ -222,8 +285,22 @@ class WebRemoteServer:
             } catch(e) {}
         }
         async function postAction(endpoint) {
+            if (!accessToken) {
+                alert('Scan the host QR code or enter the pairing token first.');
+                return;
+            }
             try {
-                await fetch(endpoint, { method: 'POST' });
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + accessToken }
+                });
+                if (response.status === 401) {
+                    accessToken = '';
+                    sessionStorage.removeItem('aircursor-access-token');
+                    pairingInput.value = '';
+                    alert('Pairing token rejected. Scan the current host QR code.');
+                    return;
+                }
                 fetchStatus();
             } catch(e) {}
         }
@@ -246,6 +323,8 @@ class WebRemoteServer:
             )
             self._thread.start()
             self._running = True
+            print(f"[AirCursor Web Remote] Access token (keep private): {self.access_token}")
+            print(f"[AirCursor Web Remote] On this computer open http://127.0.0.1:{self.port}/pair for a secure QR code.")
             return True
         except Exception as e:
             print(f"[AirCursor Web Remote] Failed to bind port {self.port}: {e}")
