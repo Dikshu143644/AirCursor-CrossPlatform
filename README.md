@@ -1,12 +1,13 @@
-# AirCursor: Cross-Platform Suite (Windows, Linux, Android)
+# AirCursor: Cross-Platform Suite (Windows, Linux, macOS Input Adapter, Android)
 
 High-precision head-tracking cursor and hands-free gesture control powered by Apple AirPods (AirPods Pro, AirPods Max, AirPods 3/4) and OpenTrack-compatible motion sensors.
 
-Originally created for macOS by [Muhammad Afham](https://github.com/m-afham/AirCursor), this repository contains the complete **reverse-engineered and recoded cross-platform suite** targeting:
+Originally created for macOS by [Muhammad Afham](https://github.com/m-afham/AirCursor), this repository contains a cross-platform suite targeting:
 * **Windows 10 / 11** (Native Win32 input, UI Automation smart dwell, transparent click-through HUD)
 * **Linux** (BlueZ L2CAP MTU 2582 Apple RemoteHID/AAP stream + kernel `/dev/uinput` mouse)
+* **macOS input adapter** (CoreGraphics mouse events through the optional PyObjC Quartz framework; separate from the AirPods sensor receiver and desktop-app integration)
 * **Android** (Kotlin `AccessibilityService` tap dispatch + `WindowManager` overlay)
-* **Core Engine** (Pure Python 3, zero external dependencies, 100% test coverage)
+* **Core Engine** (Python 3 motion, pointer, gesture, and dwell processing)
 
 ---
 
@@ -35,7 +36,7 @@ AirCursor transforms AirPods IMU telemetry (accelerometer + gyroscope) into an i
         ├──▶ [Smart Dwell Detector] (16px radius, 0.8s hold + UI Accessibility Probe)
         │
         ▼
-[Event Synthesizer] (Win32 SendInput / Linux uinput / Android AccessibilityService)
+[Platform Input Adapter] (Win32 / Linux uinput / macOS CoreGraphics / Android AccessibilityService)
 ```
 
 ### Key Technical Innovations
@@ -93,9 +94,23 @@ python3 main_linux.py --scan
 
 ---
 
+## macOS Input Adapter
+
+The CoreGraphics adapter is available as a separately installable backend. It currently provides pointer positioning, relative movement, left/right/middle click and drag, scroll, and cursor-position queries. The camera/AirPods sensing pipeline and a complete macOS desktop controller are not yet integrated with this adapter.
+
+Install on macOS:
+
+```bash
+python -m pip install -e ".[macos]"
+```
+
+macOS requires the app, terminal, or Python launcher to be approved under **System Settings → Privacy & Security → Accessibility** before it can synthesize mouse input. See [`macos/README.md`](macos/README.md) for the adapter API and an example.
+
+---
+
 ## Android Quick Start
 
-The Android implementation in [`android/`](android/) is a complete Android Studio Gradle project:
+The Android implementation in [`android/`](android/) is an Android Studio Gradle project:
 * **`AirCursorAccessibilityService`**: Injects cursor movement and simulated clicks using `dispatchGesture()` without needing root.
 * **`DwellOverlayService`**: Renders a floating, click-through circular dwell progress ring via `WindowManager`.
 * **`AirPodsMotionService`**: Connects to AirPods over Bluetooth L2CAP channel `0x1001` with seamless fallback to the phone's internal rotation vector sensor (`Sensor.TYPE_ROTATION_VECTOR`).
@@ -104,20 +119,23 @@ The Android implementation in [`android/`](android/) is a complete Android Studi
 
 ## Verification & Test Results
 
-Run tests with standard `unittest`:
+Run platform-neutral and platform-specific tests with standard `unittest`:
 
 ```bash
-# Core Engine (50 tests):
-python -m unittest tests/test_core.py
+# Core Engine:
+python -m unittest tests.test_core -v
 
-# Windows Native Suite (13 tests):
+# macOS CoreGraphics adapter tests (uses a fake Quartz API on non-macOS hosts):
+python -m unittest tests.test_macos_driver -v
+
+# Windows Native Suite (run on Windows):
 python windows/test_windows_app.py
 
-# Linux Native Suite (10 tests):
-PYTHONPATH=linux python -m unittest linux/test_linux.py
+# Linux Native Suite:
+PYTHONPATH=linux python -m unittest linux/test_linux.py -v
 ```
 
-**Overall Status: 73/73 tests passing (100% OK)**
+The GitHub Actions workflow tests Linux and Windows on Python 3.10, 3.11, and 3.12, and runs the macOS adapter suite on macOS with Python 3.12. Hardware-specific camera, Bluetooth, and accessibility behavior still requires testing on the target device and operating system.
 
 ---
 
