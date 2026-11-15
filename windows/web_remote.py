@@ -81,8 +81,18 @@ class WebRemoteServer:
                         self.wfile.write(data)
                     else:
                         self.send_error(404, "CAD Asset Not Found")
+                elif path in ("/button-remote", "/tv", "/deck", "/screen-remote"):
+                    btn_remote_path = ROOT_DIR / "aircursor_core" / "static" / "button_remote.html"
+                    if btn_remote_path.exists():
+                        self._send_html(btn_remote_path.read_text(encoding="utf-8"))
+                    else:
+                        self.send_error(404, "Button Remote Not Found")
                 elif path in ("/", "/index.html"):
-                    self._send_html(self._render_remote_html())
+                    static_remote = ROOT_DIR / "aircursor_core" / "static" / "remote.html"
+                    if static_remote.exists():
+                        self._send_html(static_remote.read_text(encoding="utf-8"))
+                    else:
+                        self._send_html(self._render_remote_html())
                 else:
                     self.send_error(404, "Endpoint Not Found")
 
@@ -99,7 +109,7 @@ class WebRemoteServer:
                     action = str(data.get("action", "")).strip().lower()
                     dx = float(data.get("dx", 0.0))
                     dy = float(data.get("dy", 0.0))
-                    handled = controller.handle_remote_action(action, dx=dx, dy=dy)
+                    handled = controller.handle_remote_action(action, dx=dx, dy=dy, extra=data)
                     self._send_json({"success": handled, "action": action, **self._get_status()})
                 elif path in ("/api/motion", "/motion"):
                     handled = controller.handle_remote_motion(data)
