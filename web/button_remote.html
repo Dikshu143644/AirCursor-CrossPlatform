@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#060913">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="AirCursor Remote">
+  <link rel="manifest" href="/manifest.json">
+  <title>AirCursor Digital Screen Remote</title>
+  <style>
+    :root {
+      --bg-dark: #050811;
+      --card-bg: rgba(15, 23, 42, 0.75);
+      --card-border: rgba(56, 189, 248, 0.2);
+      --cyan: #00f0ff;
+      --cyan-glow: rgba(0, 240, 255, 0.4);
+      --cyan-dim: #0284c7;
+      --emerald: #10b981;
+      --emerald-glow: rgba(16, 185, 129, 0.4);
+      --amber: #f59e0b;
+      --rose: #ef4444;
+      --purple: #a855f7;
+      --purple-glow: rgba(168, 85, 247, 0.4);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --font-stack: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow-x: hidden;
+      overflow-y: auto;
+      background: var(--bg-dark);
+      background-image: 
+        radial-gradient(circle at 50% 0%, rgba(14, 116, 144, 0.2) 0%, transparent 50%),
+        radial-gradient(circle at 100% 100%, rgba(15, 23, 42, 0.8) 0%, transparent 50%);
+      color: var(--text-main);
+      font-family: var(--font-stack);
+      touch-action: manipulation;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: env(safe-area-inset-top, 12px) 12px env(safe-area-inset-bottom, 16px) 12px;
+      min-height: 100%;
+    }
+
+    /* Container Deck */
+    .remote-deck {
+      max-width: 420px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin: 0 auto;
+    }
+
+    /* Header Bar */
+    .deck-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-icon {
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      background: linear-gradient(135deg, var(--cyan), #2563eb);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 10px var(--cyan-glow);
+    }
+
+    .brand-icon svg {
+      width: 14px;
+      height: 14px;
+      fill: #fff;
+    }
+
+    .brand-title {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: #fff;
+    }
+
+    .badge-sub {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 6px;
+      background: rgba(0, 240, 255, 0.15);
+      color: var(--cyan);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      font-weight: 600;
+    }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--amber);
+      transition: all 0.3s ease;
+    }
+
+    .status-dot.connected {
+      background: var(--emerald);
+      box-shadow: 0 0 8px var(--emerald-glow);
+    }
+
+    /* -------------------------------------------------------------
+       VIRTUAL SCREEN HUD DISPLAY (Interactive Mini-Screen)
+       ------------------------------------------------------------- */
+    .screen-hud-card {
+      background: rgba(10, 16, 28, 0.85);
+      border: 1px solid var(--cyan);
+      border-radius: 20px;
+      padding: 12px;
+      box-shadow: 0 8px 30px rgba(0, 240, 255, 0.15), inset 0 0 20px rgba(0, 0, 0, 0.8);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      position: relative;
+    }
+
+    .screen-meta-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      font-family: monospace;
+      color: var(--text-muted);
+    }
+
+    .screen-canvas-wrapper {
+      position: relative;
+      width: 100%;
+      padding-top: 56.25%; /* 16:9 Aspect Ratio */
+      background: #03060c;
+      border-radius: 12px;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      overflow: hidden;
+      cursor: crosshair;
+    }
+
+    .screen-grid {
+      position: absolute;
+      inset: 0;
+      opacity: 0.12;
+      background-image: 
+        linear-gradient(to right, var(--cyan) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--cyan) 1px, transparent 1px);
+      background-size: 20% 20%;
+      pointer-events: none;
+    }
+
+    /* Screen Crosshairs */
+    .screen-crosshair-x {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: rgba(56, 189, 248, 0.2);
+      pointer-events: none;
+    }
+
+    .screen-crosshair-y {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: rgba(56, 189, 248, 0.2);
+      pointer-events: none;
+    }
+
+    /* Live Cursor Dot on Mini-Screen */
+    .screen-cursor-dot {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--cyan);
+      border: 2px solid #fff;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 12px var(--cyan);
+      pointer-events: none;
+      transition: left 0.04s linear, top 0.04s linear;
+      z-index: 10;
+    }
+
+    .screen-cursor-dot::after {
+      content: '';
+      position: absolute;
+      inset: -6px;
+      border-radius: 50%;
+      border: 1px dashed var(--cyan);
+      animation: pulseRadar 2s infinite linear;
+    }
+
+    @keyframes pulseRadar {
+      0% { transform: scale(0.8); opacity: 0.9; }
+      100% { transform: scale(1.6); opacity: 0; }
+    }
+
+    .screen-footer-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    .coords-tag {
+      font-family: monospace;
+      font-weight: 700;
+      color: var(--cyan);
+    }
+
+    .screen-tap-hint {
+      font-size: 10px;
+      color: var(--emerald);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* -------------------------------------------------------------
+       TACTICAL POWER & SCREEN ACTION STRIP
+       ------------------------------------------------------------- */
+    .tactical-strip {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+    }
+
+    .btn-tactical {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 10px 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      color: var(--text-main);
+      font-size: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      transition: all 0.15s ease;
+    }
+
+    .btn-tactical svg {
+      width: 18px;
+      height: 18px;
+      stroke: var(--cyan);
+    }
+
+    .btn-tactical:active {
+      transform: scale(0.92);
+      background: rgba(0, 240, 255, 0.2);
+      border-color: var(--cyan);
+    }
+
+    /* -------------------------------------------------------------
+       DIRECTIONAL D-PAD CLUSTER
+       ------------------------------------------------------------- */
+    .dpad-section {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 24px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      backdrop-filter: blur(16px);
+    }
+
+    .dpad-mode-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding: 0 4px;
+    }
+
+    .dpad-mode-pill {
+      display: flex;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+      padding: 2px;
+    }
+
+    .dpad-mode-btn {
+      padding: 4px 10px;
+      border-radius: 12px;
+      border: none;
+      background: transparent;
+      color: var(--text-dim);
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .dpad-mode-btn.active {
+      background: rgba(0, 240, 255, 0.2);
+      color: var(--cyan);
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+    }
+
+    /* Circular / Cross D-Pad */
+    .dpad-container {
+      position: relative;
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(15, 23, 42, 0.95) 0%, rgba(6, 11, 22, 0.95) 70%);
+      border: 2px solid rgba(56, 189, 248, 0.25);
+      box-shadow: 0 0 25px rgba(0, 0, 0, 0.7), inset 0 0 15px rgba(0, 240, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn-dpad {
+      position: absolute;
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.12s ease;
+      backdrop-filter: blur(8px);
+    }
+
+    .btn-dpad svg {
+      width: 22px;
+      height: 22px;
+      stroke: var(--cyan);
+      transition: transform 0.1s ease;
+    }
+
+    .btn-dpad:active {
+      background: rgba(0, 240, 255, 0.3);
+      border-color: var(--cyan);
+      box-shadow: 0 0 16px var(--cyan-glow);
+    }
+
+    /* Up / Down / Left / Right */
+    .btn-dpad.up {
+      top: 8px;
+      width: 68px;
+      height: 54px;
+      border-radius: 20px 20px 10px 10px;
+    }
+
+    .btn-dpad.down {
+      bottom: 8px;
+      width: 68px;
+      height: 54px;
+      border-radius: 10px 10px 20px 20px;
+    }
+
+    .btn-dpad.left {
+      left: 8px;
+      width: 54px;
+      height: 68px;
+      border-radius: 20px 10px 10px 20px;
+    }
+
+    .btn-dpad.right {
+      right: 8px;
+      width: 54px;
+      height: 68px;
+      border-radius: 10px 20px 20px 10px;
+    }
+
+    /* Center OK Button */
+    .btn-dpad-center {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(0, 240, 255, 0.25) 0%, rgba(15, 23, 42, 0.95) 75%);
+      border: 2px solid var(--cyan);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.25);
+      transition: all 0.12s ease;
+      z-index: 5;
+    }
+
+    .btn-dpad-center:active {
+      transform: scale(0.92);
+      background: radial-gradient(circle, var(--cyan) 0%, rgba(37, 99, 235, 0.9) 80%);
+      box-shadow: 0 0 35px var(--cyan);
+    }
+
+    /* -------------------------------------------------------------
+       MEDIA & TV CLUSTER
+       ------------------------------------------------------------- */
+    .media-cluster-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      backdrop-filter: blur(14px);
+    }
+
+    .row-btn-group {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .btn-control {
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 12px 6px;
+      color: var(--text-main);
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn-control svg {
+      width: 16px;
+      height: 16px;
+      stroke: var(--cyan);
+    }
+
+    .btn-control:active {
+      transform: scale(0.95);
+      background: rgba(0, 240, 255, 0.25);
+      border-color: var(--cyan);
+    }
+
+    .btn-control.primary {
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.2), rgba(37, 99, 235, 0.25));
+      border-color: rgba(0, 240, 255, 0.4);
+      color: #fff;
+    }
+
+    .btn-control.active-lock {
+      background: rgba(168, 85, 247, 0.3) !important;
+      border-color: var(--purple) !important;
+      color: #fff !important;
+      box-shadow: 0 0 16px var(--purple-glow);
+    }
+
+    /* -------------------------------------------------------------
+       COLLAPSIBLE KEYBOARD & NUMPAD DRAWER
+       ------------------------------------------------------------- */
+    .drawer-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      overflow: hidden;
+      backdrop-filter: blur(14px);
+    }
+
+    .drawer-header {
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      background: rgba(15, 23, 42, 0.4);
+    }
+
+    .drawer-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--cyan);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .drawer-content {
+      padding: 14px;
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .drawer-content.open {
+      display: flex;
+    }
+
+    .input-text-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .txt-send-input {
+      flex: 1;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      color: #fff;
+      font-size: 13px;
+      outline: none;
+    }
+
+    .txt-send-input:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 10px var(--cyan-glow);
+    }
+
+    .btn-send-text {
+      background: var(--cyan);
+      color: #040914;
+      border: none;
+      border-radius: 10px;
+      padding: 0 16px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    /* Numeric Numpad 0-9 */
+    .numpad-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .btn-numpad {
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 12px 0;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      font-family: monospace;
+      cursor: pointer;
+      transition: all 0.12s ease;
+    }
+
+    .btn-numpad:active {
+      background: rgba(0, 240, 255, 0.3);
+      border-color: var(--cyan);
+      transform: scale(0.95);
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid var(--cyan);
+      box-shadow: 0 10px 30px rgba(0, 240, 255, 0.35);
+      padding: 8px 20px;
+      border-radius: 30px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      pointer-events: none;
+      opacity: 0;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 1000;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="remote-deck">
+    <!-- Top Deck Header -->
+    <header class="deck-header">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" fill="none"/>
+            <circle cx="12" cy="12" r="3" fill="currentColor"/>
+          </svg>
+        </div>
+        <div class="brand-title">AirCursor</div>
+        <span class="badge-sub">Deck Remote</span>
+      </div>
+
+      <div class="status-pill">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">Connecting...</span>
+      </div>
+    </header>
+
+    <!-- 1. VIRTUAL SCREEN HUD DISPLAY (Interactive Mini-Screen) -->
+    <section class="screen-hud-card">
+      <div class="screen-meta-row">
+        <span>VIRTUAL SCREEN HUD</span>
+        <span id="screenResTag">1920 × 1080</span>
+      </div>
+
+      <!-- Interactive 16:9 Screen Surface -->
+      <div class="screen-canvas-wrapper" id="screenSurface">
+        <div class="screen-grid"></div>
+        <div class="screen-crosshair-x"></div>
+        <div class="screen-crosshair-y"></div>
+        <!-- Live Cursor Dot -->
+        <div class="screen-cursor-dot" id="cursorDot" style="left:50%; top:50%;"></div>
+      </div>
+
+      <div class="screen-footer-row">
+        <div>CURSOR: <span class="coords-tag" id="cursorCoords">X: 960  Y: 540</span></div>
+        <div class="screen-tap-hint">
+          <span>●</span> Tap screen to jump cursor
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. TACTICAL POWER & DISPLAY ACTION STRIP -->
+    <section class="tactical-strip">
+      <button class="btn-tactical" data-action="fullscreen" title="Fullscreen (F11)">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+        <span>Fullscr</span>
+      </button>
+      <button class="btn-tactical" data-action="show_desktop" title="Show Desktop (Win+D)">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+        <span>Desk</span>
+      </button>
+      <button class="btn-tactical" data-action="task_view" title="Task View (Win+Tab)">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        <span>Tasks</span>
+      </button>
+      <button class="btn-tactical" data-action="recenter" title="Recenter Cursor">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+        <span>Center</span>
+      </button>
+      <button class="btn-tactical" data-action="pause" title="Pause Tracking" id="btnPause">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+        <span id="pauseTxt">Pause</span>
+      </button>
+    </section>
+
+    <!-- 3. DIRECTIONAL D-PAD CLUSTER -->
+    <section class="dpad-section">
+      <div class="dpad-mode-bar">
+        <span style="font-size:12px; font-weight:700; color:var(--text-muted)">DIRECTIONAL PAD</span>
+        <div class="dpad-mode-pill">
+          <button class="dpad-mode-btn active" id="btnModeArrows">Arrows</button>
+          <button class="dpad-mode-btn" id="btnModeNudge">Nudge</button>
+        </div>
+      </div>
+
+      <div class="dpad-container">
+        <!-- Up -->
+        <button class="btn-dpad up" id="dpadUp" data-dir="up">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="3"><polyline points="18 15 12 9 6 15"/></svg>
+        </button>
+        <!-- Down -->
+        <button class="btn-dpad down" id="dpadDown" data-dir="down">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <!-- Left -->
+        <button class="btn-dpad left" id="dpadLeft" data-dir="left">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="3"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <!-- Right -->
+        <button class="btn-dpad right" id="dpadRight" data-dir="right">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="3"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <!-- Center OK / Click Button -->
+        <button class="btn-dpad-center" id="dpadCenter">
+          <span>OK</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- 4. TV NAVIGATION & MEDIA CONTROLS -->
+    <section class="media-cluster-card">
+      <!-- Media row -->
+      <div class="row-btn-group">
+        <button class="btn-control" data-action="volume_down">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+          <span>Vol -</span>
+        </button>
+        <button class="btn-control" data-action="volume_mute">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+          <span>Mute</span>
+        </button>
+        <button class="btn-control" data-action="volume_up">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+          <span>Vol +</span>
+        </button>
+      </div>
+
+      <!-- Playback Row -->
+      <div class="row-btn-group">
+        <button class="btn-control" data-action="media_prev">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="19" x2="5" y2="5"/></svg>
+          <span>Prev</span>
+        </button>
+        <button class="btn-control primary" data-action="media_play_pause">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <span>Play / Pause</span>
+        </button>
+        <button class="btn-control" data-action="media_next">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+          <span>Next</span>
+        </button>
+      </div>
+
+      <!-- Navigation Row -->
+      <div class="row-btn-group">
+        <button class="btn-control" data-action="browser_back">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          <span>Back</span>
+        </button>
+        <button class="btn-control" data-action="key_esc">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9l6 6M15 9l-6 6"/></svg>
+          <span>Esc</span>
+        </button>
+        <button class="btn-control" data-action="app_switch">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+          <span>Alt+Tab</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- 5. PRIMARY MOUSE BUTTON BAR -->
+    <section class="row-btn-group">
+      <button class="btn-control primary" style="grid-column: span 2;" data-action="click">
+        <span>●</span> Left Click
+      </button>
+      <button class="btn-control" data-action="right_click">
+        <span>○</span> Right Click
+      </button>
+    </section>
+    <section class="row-btn-group">
+      <button class="btn-control" data-action="double_click">
+        <span>⚡</span> Double Click
+      </button>
+      <button class="btn-control" id="btnDragLock" data-action="drag_toggle">
+        <span id="dragLockIcon">✊</span> <span id="dragLockTxt">Drag Lock</span>
+      </button>
+      <button class="btn-control" data-action="middle_click">
+        <span>🔘</span> Middle
+      </button>
+    </section>
+
+    <!-- 6. COLLAPSIBLE KEYBOARD & NUMPAD DRAWER -->
+    <section class="drawer-card">
+      <div class="drawer-header" id="drawerHeader">
+        <span class="drawer-title">
+          <span>⌨️</span> Virtual Keyboard & Numeric Keypad
+        </span>
+        <span id="drawerArrow" style="color:var(--cyan)">▼</span>
+      </div>
+
+      <div class="drawer-content" id="drawerContent">
+        <!-- Quick text sender -->
+        <div class="input-text-row">
+          <input type="text" class="txt-send-input" id="txtInput" placeholder="Type text to send to PC...">
+          <button class="btn-send-text" id="btnSendText">Send</button>
+        </div>
+
+        <!-- 0-9 Numeric Pad -->
+        <div class="numpad-grid">
+          <button class="btn-numpad" data-num="1">1</button>
+          <button class="btn-numpad" data-num="2">2</button>
+          <button class="btn-numpad" data-num="3">3</button>
+          <button class="btn-numpad" data-num="4">4</button>
+          <button class="btn-numpad" data-num="5">5</button>
+          <button class="btn-numpad" data-num="6">6</button>
+          <button class="btn-numpad" data-num="7">7</button>
+          <button class="btn-numpad" data-num="8">8</button>
+          <button class="btn-numpad" data-num="9">9</button>
+          <button class="btn-numpad" data-action="page_up">PgUp</button>
+          <button class="btn-numpad" data-num="0">0</button>
+          <button class="btn-numpad" data-action="page_down">PgDn</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toast">
+    <span id="toastIcon">✨</span>
+    <span id="toastText">Action sent</span>
+  </div>
+
+  <script>
+    // =========================================================================
+    // AIRCURSOR DIGITAL BUTTON REMOTE ENGINE
+    // =========================================================================
+
+    const state = {
+      ws: null,
+      wsConnected: false,
+      isDragging: false,
+      isTracking: true,
+      dpadMode: 'arrows', // 'arrows' or 'nudge'
+      nudgeStep: 25,      // pixels per nudge
+      screen: { x: 0, y: 0, width: 1920, height: 1080 },
+      cursor: { x: 960, y: 540 },
+    };
+
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const toast = document.getElementById('toast');
+    const toastIcon = document.getElementById('toastIcon');
+    const toastText = document.getElementById('toastText');
+    const cursorDot = document.getElementById('cursorDot');
+    const cursorCoords = document.getElementById('cursorCoords');
+    const screenResTag = document.getElementById('screenResTag');
+    const screenSurface = document.getElementById('screenSurface');
+
+    function vibrate(ms = 14) {
+      if (navigator.vibrate) {
+        try { navigator.vibrate(ms); } catch (e) {}
+      }
+    }
+
+    let toastTimer = null;
+    function showToast(text, icon = '✓') {
+      toastIcon.textContent = icon;
+      toastText.textContent = text;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 1800);
+    }
+
+    // =========================================================================
+    // NETWORKING (WebSocket + HTTP Fallback)
+    // =========================================================================
+    function initWebSocket() {
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${proto}//${location.host}/ws`;
+
+      try {
+        state.ws = new WebSocket(wsUrl);
+
+        state.ws.onopen = () => {
+          state.wsConnected = true;
+          statusDot.className = 'status-dot connected';
+          statusText.textContent = 'Connected (WS)';
+          showToast('WebSocket connected', '⚡');
+        };
+
+        state.ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'pong' || data.type === 'status') {
+              if (data.ts) {
+                const rtt = Math.round(performance.now() - data.ts);
+                statusText.textContent = `${rtt}ms`;
+              }
+              if (data.cursor) updateCursorPosition(data.cursor.x, data.cursor.y);
+              if (data.screen) updateScreenResolution(data.screen);
+              if (data.tracking_enabled !== undefined) {
+                state.isTracking = data.tracking_enabled;
+                updateTrackingUI();
+              }
+            }
+          } catch (e) {}
+        };
+
+        state.ws.onclose = () => {
+          state.wsConnected = false;
+          statusDot.className = 'status-dot';
+          statusText.textContent = 'HTTP Mode';
+          setTimeout(initWebSocket, 2500);
+        };
+
+        state.ws.onerror = () => {
+          state.wsConnected = false;
+          statusDot.className = 'status-dot';
+          statusText.textContent = 'HTTP Mode';
+        };
+      } catch (err) {
+        state.wsConnected = false;
+        setTimeout(initWebSocket, 4000);
+      }
+    }
+
+    function sendAction(action, dx = 0.0, dy = 0.0, extra = {}) {
+      vibrate(15);
+      const payload = { action, dx: Number(dx), dy: Number(dy), ...extra };
+
+      if (state.wsConnected && state.ws.readyState === WebSocket.OPEN) {
+        state.ws.send(JSON.stringify({ type: 'action', ...payload }));
+      } else {
+        fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        }).catch(() => {});
+      }
+    }
+
+    // Periodic Status Polling & Screen Dimension Sync
+    setInterval(() => {
+      if (state.wsConnected && state.ws.readyState === WebSocket.OPEN) {
+        state.ws.send(JSON.stringify({ type: 'ping', ts: performance.now() }));
+      } else {
+        const t0 = performance.now();
+        fetch('/status')
+          .then(r => r.json())
+          .then(data => {
+            const rtt = Math.round(performance.now() - t0);
+            statusDot.className = 'status-dot connected';
+            statusText.textContent = `${rtt}ms (HTTP)`;
+            if (data.cursor) updateCursorPosition(data.cursor.x, data.cursor.y);
+            if (data.screen) updateScreenResolution(data.screen);
+            if (data.tracking_enabled !== undefined) {
+              state.isTracking = data.tracking_enabled;
+              updateTrackingUI();
+            }
+          })
+          .catch(() => {
+            statusDot.className = 'status-dot';
+            statusText.textContent = 'Offline';
+          });
+      }
+    }, 2000);
+
+    // =========================================================================
+    // VIRTUAL SCREEN RADAR: INTERACTIVE CANVAS & CURSOR TRACKER
+    // =========================================================================
+    function updateCursorPosition(x, y) {
+      state.cursor.x = Math.round(x);
+      state.cursor.y = Math.round(y);
+      cursorCoords.textContent = `X: ${state.cursor.x}  Y: ${state.cursor.y}`;
+
+      const pctX = ((x - state.screen.x) / state.screen.width) * 100;
+      const pctY = ((y - state.screen.y) / state.screen.height) * 100;
+      cursorDot.style.left = `${Math.max(2, Math.min(98, pctX))}%`;
+      cursorDot.style.top = `${Math.max(2, Math.min(98, pctY))}%`;
+    }
+
+    function updateScreenResolution(screen) {
+      if (!screen || !screen.width || !screen.height) return;
+      state.screen = screen;
+      screenResTag.textContent = `${screen.width} × ${screen.height}`;
+    }
+
+    // Touch on Virtual Screen: Jump / Teleport cursor directly
+    function handleScreenTouch(e) {
+      e.preventDefault();
+      const rect = screenSurface.getBoundingClientRect();
+      const touch = e.touches ? e.touches[0] : e;
+      const localX = Math.max(0, Math.min(rect.width, touch.clientX - rect.left));
+      const localY = Math.max(0, Math.min(rect.height, touch.clientY - rect.top));
+
+      // Calculate absolute desktop coordinates
+      const targetX = state.screen.x + (localX / rect.width) * state.screen.width;
+      const targetY = state.screen.y + (localY / rect.height) * state.screen.height;
+
+      updateCursorPosition(targetX, targetY);
+      sendAction('jump_to', targetX, targetY);
+      vibrate(18);
+    }
+
+    screenSurface.addEventListener('touchstart', handleScreenTouch, { passive: false });
+    screenSurface.addEventListener('touchmove', handleScreenTouch, { passive: false });
+    screenSurface.addEventListener('mousedown', (e) => {
+      handleScreenTouch(e);
+      const onMove = (ev) => handleScreenTouch(ev);
+      const onUp = () => {
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp);
+      };
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+    });
+
+    // =========================================================================
+    // DIRECTIONAL D-PAD HANDLER (Arrows vs Nudge Mode)
+    // =========================================================================
+    const btnModeArrows = document.getElementById('btnModeArrows');
+    const btnModeNudge = document.getElementById('btnModeNudge');
+
+    btnModeArrows.addEventListener('click', () => {
+      state.dpadMode = 'arrows';
+      btnModeArrows.classList.add('active');
+      btnModeNudge.classList.remove('active');
+      showToast('D-Pad: Arrow Keys', '↕');
+    });
+
+    btnModeNudge.addEventListener('click', () => {
+      state.dpadMode = 'nudge';
+      btnModeNudge.classList.add('active');
+      btnModeArrows.classList.remove('active');
+      showToast('D-Pad: Cursor Nudge', '🎯');
+    });
+
+    document.querySelectorAll('.btn-dpad').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const dir = btn.dataset.dir;
+        if (state.dpadMode === 'arrows') {
+          sendAction(`dpad_${dir}`);
+          showToast(`Arrow ${dir.toUpperCase()}`, '▲');
+        } else {
+          // Cursor nudge
+          let dx = 0, dy = 0;
+          if (dir === 'up') dy = -state.nudgeStep;
+          if (dir === 'down') dy = state.nudgeStep;
+          if (dir === 'left') dx = -state.nudgeStep;
+          if (dir === 'right') dx = state.nudgeStep;
+          sendAction('scroll', dx, dy);
+          showToast(`Nudge ${dir}`, '⯈');
+        }
+      });
+    });
+
+    // Center OK / Click button
+    document.getElementById('dpadCenter').addEventListener('click', () => {
+      if (state.dpadMode === 'arrows') {
+        sendAction('dpad_ok');
+        showToast('OK / Enter', '✓');
+      } else {
+        sendAction('click');
+        showToast('Left Click', '●');
+      }
+    });
+
+    // =========================================================================
+    // BUTTON ACTIONS & MEDIA DISPATCH
+    // =========================================================================
+    const btnPause = document.getElementById('btnPause');
+    const pauseTxt = document.getElementById('pauseTxt');
+    const btnDragLock = document.getElementById('btnDragLock');
+    const dragLockTxt = document.getElementById('dragLockTxt');
+    const dragLockIcon = document.getElementById('dragLockIcon');
+
+    function updateTrackingUI() {
+      pauseTxt.textContent = state.isTracking ? 'Pause' : 'Resume';
+    }
+
+    document.querySelectorAll('[data-action]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const action = btn.dataset.action;
+
+        if (action === 'drag_toggle') {
+          state.isDragging = !state.isDragging;
+          if (state.isDragging) {
+            btnDragLock.classList.add('active-lock');
+            dragLockTxt.textContent = 'Dragging';
+            dragLockIcon.textContent = '✊';
+            showToast('Drag Lock Engaged', '✊');
+          } else {
+            btnDragLock.classList.remove('active-lock');
+            dragLockTxt.textContent = 'Drag Lock';
+            dragLockIcon.textContent = '🖐';
+            showToast('Drag Released', '🖐');
+          }
+          sendAction('drag_toggle');
+        } else if (action === 'pause') {
+          state.isTracking = !state.isTracking;
+          updateTrackingUI();
+          sendAction(state.isTracking ? 'resume' : 'pause');
+          showToast(state.isTracking ? 'Tracking Resumed' : 'Tracking Paused', state.isTracking ? '▶' : '⏸');
+        } else {
+          sendAction(action);
+          showToast(btn.querySelector('span') ? btn.querySelector('span').textContent : action, '⚡');
+        }
+      });
+    });
+
+    // Numeric Numpad buttons (0-9)
+    document.querySelectorAll('[data-num]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const num = btn.dataset.num;
+        sendAction(num);
+        showToast(`Key: ${num}`, '#');
+      });
+    });
+
+    // =========================================================================
+    // KEYBOARD TEXT INPUT DRAWER
+    // =========================================================================
+    const drawerHeader = document.getElementById('drawerHeader');
+    const drawerContent = document.getElementById('drawerContent');
+    const drawerArrow = document.getElementById('drawerArrow');
+    const txtInput = document.getElementById('txtInput');
+    const btnSendText = document.getElementById('btnSendText');
+
+    drawerHeader.addEventListener('click', () => {
+      const isOpen = drawerContent.classList.toggle('open');
+      drawerArrow.textContent = isOpen ? '▲' : '▼';
+      vibrate(10);
+    });
+
+    function submitText() {
+      const val = txtInput.value.trim();
+      if (!val) return;
+      sendAction('type_text', 0, 0, { text: val });
+      showToast(`Typed: "${val.slice(0, 15)}"`, '⌨️');
+      txtInput.value = '';
+      txtInput.blur();
+    }
+
+    btnSendText.addEventListener('click', submitText);
+    txtInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') submitText();
+    });
+
+    // Start WebSocket
+    initWebSocket();
+  </script>
+</body>
+</html>

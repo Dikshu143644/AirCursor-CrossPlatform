@@ -1716,6 +1716,8 @@
                 state.isTracking = data.tracking_enabled;
                 updateTrackingUI();
               }
+              if (data.cursor) updateTabScreenCursor(data.cursor.x, data.cursor.y);
+              if (data.screen) updateTabScreenRes(data.screen);
             }
           } catch (e) {}
         };
@@ -1803,6 +1805,8 @@
               state.isTracking = data.tracking_enabled;
               updateTrackingUI();
             }
+            if (data.cursor) updateTabScreenCursor(data.cursor.x, data.cursor.y);
+            if (data.screen) updateTabScreenRes(data.screen);
           })
           .catch(() => {
             statusDot.className = 'status-dot disconnected';
@@ -2523,6 +2527,89 @@
         ly = cy;
         if (oled) oled.textContent = `dX:${Math.round(dx)} dY:${Math.round(dy)} • 1000HZ`;
       }, { passive: false });
+    }
+
+    // =========================================================================
+    // BUTTON REMOTE & VIRTUAL SCREEN HUD LOGIC
+    // =========================================================================
+    const tabCursorDot = document.getElementById('tabCursorDot');
+    const tabCursorCoords = document.getElementById('tabCursorCoords');
+    const tabScreenResTag = document.getElementById('tabScreenResTag');
+    const tabScreenSurface = document.getElementById('tabScreenSurface');
+    let screenBounds = { x: 0, y: 0, width: 1920, height: 1080 };
+
+    function updateTabScreenCursor(x, y) {
+      if (!tabCursorDot) return;
+      const rx = Math.round(x);
+      const ry = Math.round(y);
+      if (tabCursorCoords) tabCursorCoords.textContent = `X: ${rx}  Y: ${ry}`;
+      const px = ((x - screenBounds.x) / screenBounds.width) * 100;
+      const py = ((y - screenBounds.y) / screenBounds.height) * 100;
+      tabCursorDot.style.left = `${Math.max(2, Math.min(98, px))}%`;
+      tabCursorDot.style.top = `${Math.max(2, Math.min(98, py))}%`;
+    }
+
+    function updateTabScreenRes(screen) {
+      if (!screen || !screen.width || !screen.height) return;
+      screenBounds = screen;
+      if (tabScreenResTag) tabScreenResTag.textContent = `${screen.width} × ${screen.height}`;
+    }
+
+    if (tabScreenSurface) {
+      function onScreenTouch(e) {
+        e.preventDefault();
+        const rect = tabScreenSurface.getBoundingClientRect();
+        const touch = e.touches ? e.touches[0] : e;
+        const lx = Math.max(0, Math.min(rect.width, touch.clientX - rect.left));
+        const ly = Math.max(0, Math.min(rect.height, touch.clientY - rect.top));
+        const tx = screenBounds.x + (lx / rect.width) * screenBounds.width;
+        const ty = screenBounds.y + (ly / rect.height) * screenBounds.height;
+        updateTabScreenCursor(tx, ty);
+        sendAction('jump_to', tx, ty);
+      }
+      tabScreenSurface.addEventListener('touchstart', onScreenTouch, { passive: false });
+      tabScreenSurface.addEventListener('touchmove', onScreenTouch, { passive: false });
+      tabScreenSurface.addEventListener('mousedown', onScreenTouch);
+    }
+
+    let dpadMode = 'arrows';
+    const tabBtnModeArrows = document.getElementById('tabBtnModeArrows');
+    const tabBtnModeNudge = document.getElementById('tabBtnModeNudge');
+    if (tabBtnModeArrows && tabBtnModeNudge) {
+      tabBtnModeArrows.addEventListener('click', () => {
+        dpadMode = 'arrows';
+        tabBtnModeArrows.classList.add('active');
+        tabBtnModeNudge.classList.remove('active');
+      });
+      tabBtnModeNudge.addEventListener('click', () => {
+        dpadMode = 'nudge';
+        tabBtnModeNudge.classList.add('active');
+        tabBtnModeArrows.classList.remove('active');
+      });
+    }
+
+    document.querySelectorAll('.tab-dpad-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const dir = btn.dataset.dir;
+        if (dpadMode === 'arrows') {
+          sendAction(`dpad_${dir}`);
+        } else {
+          let dx = 0, dy = 0;
+          if (dir === 'up') dy = -25;
+          if (dir === 'down') dy = 25;
+          if (dir === 'left') dx = -25;
+          if (dir === 'right') dx = 25;
+          sendAction('scroll', dx, dy);
+        }
+      });
+    });
+
+    const tabDpadCenter = document.getElementById('tabDpadCenter');
+    if (tabDpadCenter) {
+      tabDpadCenter.addEventListener('click', () => {
+        if (dpadMode === 'arrows') sendAction('dpad_ok');
+        else sendAction('click');
+      });
     }
 
     // Default select Concept 01: AirRing Pro
