@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#101318"><title>AirCursor Remote</title>
+<style>
+:root{color-scheme:dark;font:16px system-ui;background:#101318;color:#f4f6f8}
+*{box-sizing:border-box}body{margin:0;min-height:100dvh;display:grid;grid-template-rows:auto 1fr auto;gap:14px;padding:18px;max-width:760px;margin:auto}
+header,footer{display:flex;align-items:center;justify-content:space-between;gap:12px}h1{font-size:1.15rem;margin:0}.status{font-size:.8rem;color:#aab4c2}
+.pad{border:1px solid #39424f;background:linear-gradient(145deg,#202733,#151a22);border-radius:24px;min-height:45dvh;touch-action:none;display:grid;place-items:center;color:#aab4c2;user-select:none}
+.controls{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}button{background:#252e3a;border:1px solid #455365;color:white;border-radius:15px;min-height:54px;font:inherit}.wide{grid-column:span 2}
+</style></head><body>
+<header><h1>AirCursor Remote</h1><span id="status" class="status">Connecting…</span></header>
+<main id="pad" class="pad" aria-label="Touchpad">Touch and move to control cursor</main>
+<section class="controls">
+<button id="left" class="wide">Left click</button><button id="right" class="wide">Right click</button>
+<button id="scrollUp">Scroll +</button><button id="scrollDown">Scroll −</button>
+<button id="recenter" class="wide">Recenter</button><button id="disconnect" class="wide">Disconnect</button>
+</section><footer><span class="status">Same Wi-Fi network • Local connection</span></footer>
+<script src="/remote.js" defer></script></body></html>
