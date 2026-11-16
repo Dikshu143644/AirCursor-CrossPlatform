@@ -12,8 +12,12 @@ from __future__ import annotations
 
 import ctypes
 from ctypes import wintypes
+import os
+import subprocess
+import sys
 import time
-from typing import Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
+import webbrowser
 
 # Win32 Constants
 INPUT_MOUSE = 0
@@ -128,6 +132,34 @@ class INPUT(ctypes.Structure):
     ]
 
 
+class RECT(ctypes.Structure):
+    _fields_ = [
+        ("left", wintypes.LONG),
+        ("top", wintypes.LONG),
+        ("right", wintypes.LONG),
+        ("bottom", wintypes.LONG),
+    ]
+
+
+class MONITORINFOEXW(ctypes.Structure):
+    _fields_ = [
+        ("cbSize", wintypes.DWORD),
+        ("rcMonitor", RECT),
+        ("rcWork", RECT),
+        ("dwFlags", wintypes.DWORD),
+        ("szDevice", wintypes.WCHAR * 32),
+    ]
+
+
+MonitorEnumProc = ctypes.WINFUNCTYPE(
+    ctypes.c_int,
+    wintypes.HMONITOR,
+    wintypes.HDC,
+    ctypes.POINTER(RECT),
+    wintypes.LPARAM,
+)
+
+
 user32 = ctypes.windll.user32
 user32.SendInput.argtypes = (wintypes.UINT, ctypes.POINTER(INPUT), ctypes.c_int)
 user32.SendInput.restype = wintypes.UINT
@@ -173,6 +205,58 @@ class EventSynthesizer:
             h = user32.GetSystemMetrics(1)  # SM_CYSCREEN
             x, y = 0, 0
         return x, y, w, h
+
+    @staticmethod
+    def get_monitors() -> List[Dict[str, Any]]:
+        """Returns list of connected display monitors with their bounding rectangles and primary status."""
+        monitors: List[Dict[str, Any]] = []
+
+        try:
+            def _callback(hMonitor, hdcMonitor, lprcMonitor, dwData):
+                info = MONITORINFOEXW()
+                info.cbSize = ctypes.sizeof(MONITORINFOEXW)
+                if user32.GetMonitorInfoW(hMonitor, ctypes.byref(info)):
+                    w = int(info.rcMonitor.right - info.rcMonitor.left)
+                    h = int(info.rcMonitor.bottom - info.rcMonitor.top)
+                    monitors.append({
+                        "id": len(monitors),
+                        "name": str(info.szDevice) if info.szDevice else f"Display {len(monitors) + 1}",
+                        "x": int(info.rcMonitor.left),
+                        "y": int(info.rcMonitor.top),
+                        "width": w,
+                        "height": h,
+                        "primary": bool(info.dwFlags & 1),
+                    })
+                return 1
+
+            cb = MonitorEnumProc(_callback)
+            user32.EnumDisplayMonitors(None, None, cb, 0)
+        except Exception:
+            pass
+
+        if not monitors:
+            vx, vy, vw, vh = EventSynthesizer.get_screen_bounds()
+            monitors.append({
+                "id": 0,
+                "name": "Display 1",
+                "x": vx,
+                "y": vy,
+                "width": vw,
+                "height": vh,
+                "primary": True,
+            })
+        return monitors
+
+    def switch_monitor(self, monitor_id: int) -> bool:
+        """Jumps the cursor to the center of the specified monitor index."""
+        monitors = self.get_monitors()
+        for mon in monitors:
+            if mon["id"] == int(monitor_id):
+                cx = mon["x"] + mon["width"] // 2
+                cy = mon["y"] + mon["height"] // 2
+                self.move_to(cx, cy)
+                return True
+        return False
 
     def move_to(self, x: float, y: float, use_send_input: bool = False) -> None:
         """Moves cursor to absolute screen coordinates (x, y).
@@ -470,6 +554,49 @@ class EventSynthesizer:
     def show_desktop(self) -> None:
         """Minimizes all windows to show desktop (Win + D)."""
         self.key_stroke(ord("D"), modifiers=[VK_LWIN])
+
+    def launch_app(self, app_name: str) -> bool:
+        """Instant media and navigation macro launcher.
+        
+        Supports YouTube, Netflix, Prime Video, Web Browser, and File Explorer.
+        """
+        name = app_name.strip().lower()
+        try:
+            if name in ("youtube", "yt"):
+                webbrowser.open("https://www.youtube.com")
+                return True
+            elif name in ("netflix", "net"):
+                if sys.platform == "win32":
+                    try:
+                        os.startfile("netflix:")
+                        return True
+                    except OSError:
+                        pass
+                webbrowser.open("https://www.netflix.com")
+                return True
+            elif name in ("prime", "primevideo", "amazon_prime", "prime_video"):
+                if sys.platform == "win32":
+                    try:
+                        os.startfile("primevideo:")
+                        return True
+                    except OSError:
+                        pass
+                webbrowser.open("https://www.primevideo.com")
+                return True
+            elif name in ("browser", "web", "chrome", "edge", "web_browser"):
+                webbrowser.open("https://www.google.com")
+                return True
+            elif name in ("explorer", "files", "file_explorer"):
+                if sys.platform == "win32":
+                    subprocess.Popen(["explorer.exe"])
+                elif sys.platform == "darwin":
+                    subprocess.Popen(["open", os.path.expanduser("~")])
+                else:
+                    subprocess.Popen(["xdg-open", os.path.expanduser("~")])
+                return True
+        except Exception:
+            return False
+        return False
 
     def press_key(self, key_name: str) -> None:
         """Dispatches a named navigation key for D-pad or TV remote navigation."""

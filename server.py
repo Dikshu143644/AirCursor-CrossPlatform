@@ -146,7 +146,7 @@ class AirCursorServerController:
             print(f"[Warning] Could not bind UDP port {self.udp_port}: {e}")
 
     def _udp_loop(self) -> None:
-        """Decodes OpenTrack 48-byte packets (<6d: x,y,z,yaw,pitch,roll)."""
+        """Decodes OpenTrack 48-byte packets (<6d: x,y,z,yaw,pitch,roll) and responds to UDP discovery."""
         format_str = "<6d"
         packet_size = struct.calcsize(format_str)
 
@@ -155,7 +155,7 @@ class AirCursorServerController:
                 r, _, _ = select.select([self._udp_socket], [], [], 0.1)
                 if not r:
                     continue
-                data, _ = self._udp_socket.recvfrom(128)
+                data, addr = self._udp_socket.recvfrom(512)
                 if len(data) >= packet_size:
                     now = time.time()
                     _, _, _, yaw_deg, pitch_deg, roll_deg = struct.unpack(
@@ -168,6 +168,16 @@ class AirCursorServerController:
                         roll=AngleMath.radians(roll_deg),
                     )
                     self.push_sample(sample)
+                elif b"discover" in data.lower() or b"aircursor" in data.lower():
+                    # Reply with discovery announcement
+                    resp = json.dumps({
+                        "service": "aircursor",
+                        "status": "ok",
+                        "http_port": 8765,
+                        "udp_port": self.udp_port,
+                        "version": "1.0.5"
+                    }).encode("utf-8")
+                    self._udp_socket.sendto(resp, addr)
             except Exception:
                 pass
 
@@ -316,6 +326,76 @@ class AirCursorRequestHandler(SimpleHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
 
+    def _handle_websocket_handshake(self, ws_key: str) -> None:
+        import hashlib
+        import base64
+        guid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+        accept_token = base64.b64encode(hashlib.sha1((ws_key.strip() + guid).encode("utf-8")).digest()).decode("utf-8")
+        self.send_response(101, "Switching Protocols")
+        self.send_header("Upgrade", "websocket")
+        self.send_header("Connection", "Upgrade")
+        self.send_header("Sec-WebSocket-Accept", accept_token)
+        self.end_headers()
+        self._serve_websocket()
+
+    def _serve_websocket(self) -> None:
+        """Handles RFC 6455 framed WebSocket messages for bidirectional telemetry and control."""
+        try:
+            hello_json = json.dumps({"type": "server_hello", "service": "aircursor", "status": "ok"}).encode("utf-8")
+            frame = (
+                bytearray([0x81, len(hello_json)]) + hello_json
+                if len(hello_json) < 126
+                else bytearray([0x81, 126]) + struct.pack(">H", len(hello_json)) + hello_json
+            )
+            self.wfile.write(frame)
+            self.wfile.flush()
+
+            while True:
+                header = self.rfile.read(2)
+                if not header or len(header) < 2:
+                    break
+                b1, b2 = header[0], header[1]
+                opcode = b1 & 0x0F
+                if opcode == 0x08:  # Close opcode
+                    break
+                is_masked = (b2 & 0x80) != 0
+                payload_len = b2 & 0x7F
+                if payload_len == 126:
+                    payload_len = struct.unpack(">H", self.rfile.read(2))[0]
+                elif payload_len == 127:
+                    payload_len = struct.unpack(">Q", self.rfile.read(8))[0]
+
+                masks = self.rfile.read(4) if is_masked else b""
+                raw_payload = self.rfile.read(payload_len)
+                payload = bytes(b ^ masks[i % 4] for i, b in enumerate(raw_payload)) if is_masked else raw_payload
+
+                if opcode == 0x01:  # Text frame
+                    try:
+                        data = json.loads(payload.decode("utf-8"))
+                        if self.controller:
+                            if "yaw" in data and "pitch" in data and "roll" in data:
+                                sample = MotionSample(
+                                    timestamp=time.time(),
+                                    yaw=AngleMath.radians(float(data["yaw"])),
+                                    pitch=AngleMath.radians(float(data["pitch"])),
+                                    roll=AngleMath.radians(float(data["roll"])),
+                                )
+                                self.controller.push_sample(sample)
+                            elif "action" in data:
+                                act = str(data["action"]).lower()
+                                if act == "click" or act == "left_click":
+                                    self.controller.execute_action(PointerAction.LEFT_CLICK)
+                                elif act == "recenter":
+                                    self.controller.execute_action(PointerAction.RECENTER)
+                    except Exception:
+                        pass
+                elif opcode == 0x09:  # Ping
+                    pong = bytearray([0x8A, len(payload)]) + payload
+                    self.wfile.write(pong)
+                    self.wfile.flush()
+        except Exception:
+            pass
+
     def do_GET(self) -> None:
         parsed_path = self.path.split("?")[0].rstrip("/")
         if parsed_path == "":
@@ -334,6 +414,17 @@ class AirCursorRequestHandler(SimpleHTTPRequestHandler):
             else:
                 self.send_json_response({})
             return
+
+        # 3. WebSocket Endpoint (/ws)
+        if parsed_path == "/ws":
+            ws_key = self.headers.get("Sec-WebSocket-Key")
+            if ws_key:
+                self._handle_websocket_handshake(ws_key)
+                return
+            else:
+                status_data = self.controller.get_status_dict() if self.controller else {"status": "ok"}
+                self.send_json_response({"service": "aircursor_ws", "websocket": "ready", **status_data})
+                return
 
         # 3. Static Web PWA Assets
         target_file = None

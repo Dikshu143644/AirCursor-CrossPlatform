@@ -306,6 +306,36 @@
       font-weight: bold;
     }
 
+    .cad-downloads {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+
+    .cad-badge {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 7px 10px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(0, 229, 255, 0.25);
+      border-radius: 8px;
+      color: var(--accent-cyan);
+      text-decoration: none;
+      font-size: 10.5px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .cad-badge:hover {
+      background: rgba(0, 229, 255, 0.15);
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 12px rgba(0, 229, 255, 0.3);
+      color: #fff;
+    }
+
     .select-button {
       margin-top: auto;
       background: linear-gradient(135deg, #00b4d8, #0077b6);
@@ -464,6 +494,9 @@
     <button class="concept-btn" data-id="5">
       <span class="tag">05</span> AirDeck
     </button>
+    <button class="concept-btn" data-id="all">
+      <span class="tag">ALL</span> Lineup
+    </button>
   </div>
 
   <!-- Right Spec Panel -->
@@ -514,6 +547,14 @@
       <li>TDK PowerHap 2.5G piezoelectric haptic click engine.</li>
       <li>Nordic nRF5340 dual-core BLE 5.3 SoC + 2-pin magnetic pogo charging.</li>
     </ul>
+
+    <div class="section-title">CAD Models & 3D Exports</div>
+    <div class="cad-downloads" id="cad-downloads">
+      <a class="cad-badge" id="download-blend" href="models/concept_1_airring_pro.blend" download>.BLEND (30fps Orbit)</a>
+      <a class="cad-badge" id="download-glb" href="models/concept_1_airring_pro.glb" download>.GLB</a>
+      <a class="cad-badge" id="download-obj" href="models/concept_1_airring_pro.obj" download>.OBJ</a>
+      <a class="cad-badge" id="download-stl" href="models/concept_1_airring_pro.stl" download>.STL</a>
+    </div>
 
     <button class="select-button" id="select-btn">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
@@ -645,7 +686,34 @@
           "Independent dual-axis linear resonant actuators (LRA haptics).",
           "Ultra-low-latency 2.4 GHz RF / BLE 5.3 dual-link transceiver."
         ]
+      },
+      'all': {
+        name: "AirCursor Hardware Lineup",
+        badge: "ALL 5 CONCEPTS",
+        tagline: "Unified physical CAD lineup: AirRing Pro, AirWand Elite, AirPebble Touch, AirClip Mini, and AirDeck Controller.",
+        mass: "210.8 g (Combined)",
+        dimensions: "Studio Showcase Rig",
+        battery: "28 - 120 hrs",
+        input: "Multimodal Arbiter",
+        cmf: "Grade 5 Titanium, 6061-T6 Aluminum, Gorilla Glass Victus, Medical PEEK, CFRP, AZ91D Magnesium alloy.",
+        swatches: ["#5a5d64", "#1c1d21", "#b0bec5", "#212121", "#e0e0e0"],
+        features: [
+          "Complete procedural Blender 5.1 CAD family with unified studio materials.",
+          "Seamless arbitration across ring micro-nudging, wand gesture pointing, puck glide, clip head-freeze, and deck force pad.",
+          "Shared 30fps 120-frame turntable camera orbit keyframes.",
+          "Synchronized PBR metallic/roughness workflows and emissive LED accents.",
+          "Production ready multi-format export (.blend, .glb, .obj, .stl)."
+        ]
       }
+    };
+
+    const DOWNLOAD_MAP = {
+      1: "concept_1_airring_pro",
+      2: "concept_2_airwand_elite",
+      3: "concept_3_airpebble_touch",
+      4: "concept_4_airclip_mini",
+      5: "concept_5_airdeck_controller",
+      'all': "all_5_products_showcase"
     };
 
     // State Variables
@@ -1154,39 +1222,66 @@
         }
       });
 
-      // Toggle 3D Group Visibility
-      for (const [key, item] of Object.entries(conceptSubGroups)) {
-        item.group.visible = (key == id);
+      // Toggle 3D Group Visibility & Positioning
+      if (id === 'all') {
+        const layoutOffsets = { 1: -4.0, 2: -2.0, 3: 0.0, 4: 2.0, 5: 4.0 };
+        for (const [key, item] of Object.entries(conceptSubGroups)) {
+          item.group.visible = true;
+          item.group.position.set(layoutOffsets[key] || 0, 0, 0);
+        }
+        camera.position.set(0, 4.2, 8.8);
+        controls.target.set(0, 0, 0);
+      } else {
+        for (const [key, item] of Object.entries(conceptSubGroups)) {
+          item.group.visible = (key == id);
+          item.group.position.set(0, 0, 0);
+        }
+        camera.position.set(0, 3.5, 6.5);
+        controls.target.set(0, 0, 0);
       }
 
       // Update Spec Panel
       const data = CONCEPTS_DATA[id];
-      specName.innerText = data.name;
-      specBadge.innerText = data.badge;
-      specTagline.innerText = data.tagline;
-      statMass.innerText = data.mass;
-      statDimensions.innerText = data.dimensions;
-      statBattery.innerText = data.battery;
-      statInput.innerText = data.input;
-      cmfDetails.childNodes[0].nodeValue = data.cmf + " ";
+      if (data) {
+        specName.innerText = data.name;
+        specBadge.innerText = data.badge;
+        specTagline.innerText = data.tagline;
+        statMass.innerText = data.mass;
+        statDimensions.innerText = data.dimensions;
+        statBattery.innerText = data.battery;
+        statInput.innerText = data.input;
+        cmfDetails.childNodes[0].nodeValue = data.cmf + " ";
 
-      // Update Swatches
-      const swatchContainer = cmfDetails.querySelector('.cmf-swatches');
-      swatchContainer.innerHTML = '';
-      data.swatches.forEach(c => {
-        const sw = document.createElement('div');
-        sw.className = 'swatch';
-        sw.style.backgroundColor = c;
-        swatchContainer.appendChild(sw);
-      });
+        // Update Swatches
+        const swatchContainer = cmfDetails.querySelector('.cmf-swatches');
+        swatchContainer.innerHTML = '';
+        data.swatches.forEach(c => {
+          const sw = document.createElement('div');
+          sw.className = 'swatch';
+          sw.style.backgroundColor = c;
+          swatchContainer.appendChild(sw);
+        });
 
-      // Update Features List
-      featuresList.innerHTML = '';
-      data.features.forEach(f => {
-        const li = document.createElement('li');
-        li.innerText = f;
-        featuresList.appendChild(li);
-      });
+        // Update Features List
+        featuresList.innerHTML = '';
+        data.features.forEach(f => {
+          const li = document.createElement('li');
+          li.innerText = f;
+          featuresList.appendChild(li);
+        });
+      }
+
+      // Update CAD Download Links
+      const baseName = DOWNLOAD_MAP[id] || "concept_1_airring_pro";
+      const blendLabel = id === 'all' ? ".BLEND (Showcase 30fps Orbit)" : ".BLEND (30fps Orbit)";
+      const dlBlend = document.getElementById('download-blend');
+      const dlGlb = document.getElementById('download-glb');
+      const dlObj = document.getElementById('download-obj');
+      const dlStl = document.getElementById('download-stl');
+      if (dlBlend) { dlBlend.href = `models/${baseName}.blend`; dlBlend.innerText = blendLabel; }
+      if (dlGlb) { dlGlb.href = `models/${baseName}.glb`; dlGlb.innerText = ".GLB"; }
+      if (dlObj) { dlObj.href = `models/${baseName}.obj`; dlObj.innerText = ".OBJ"; }
+      if (dlStl) { dlStl.href = `models/${baseName}.stl`; dlStl.innerText = ".STL"; }
 
       // Reset Exploded state if switching
       if (explodedActive) {
@@ -1210,13 +1305,21 @@
 
     // Exploded View Transition
     function applyExplodedTransform(isExploded) {
-      const activeObj = conceptSubGroups[currentConceptId];
-      if (!activeObj) return;
-
-      activeObj.parts.forEach(part => {
-        const target = isExploded ? part.offset : new THREE.Vector3(0, 0, 0);
-        part.mesh.position.lerp(target, 0.4);
-      });
+      if (currentConceptId === 'all') {
+        for (const item of Object.values(conceptSubGroups)) {
+          item.parts.forEach(part => {
+            const target = isExploded ? part.offset : new THREE.Vector3(0, 0, 0);
+            part.mesh.position.lerp(target, 0.4);
+          });
+        }
+      } else {
+        const activeObj = conceptSubGroups[currentConceptId];
+        if (!activeObj) return;
+        activeObj.parts.forEach(part => {
+          const target = isExploded ? part.offset : new THREE.Vector3(0, 0, 0);
+          part.mesh.position.lerp(target, 0.4);
+        });
+      }
     }
 
     // Window Resize Handler
@@ -1242,12 +1345,21 @@
       }
 
       // Exploded View Smooth Lerp
-      const activeObj = conceptSubGroups[currentConceptId];
-      if (activeObj) {
-        activeObj.parts.forEach(part => {
-          const target = explodedActive ? part.offset : new THREE.Vector3(0, 0, 0);
-          part.mesh.position.lerp(target, 0.1);
-        });
+      if (currentConceptId === 'all') {
+        for (const item of Object.values(conceptSubGroups)) {
+          item.parts.forEach(part => {
+            const target = explodedActive ? part.offset : new THREE.Vector3(0, 0, 0);
+            part.mesh.position.lerp(target, 0.1);
+          });
+        }
+      } else {
+        const activeObj = conceptSubGroups[currentConceptId];
+        if (activeObj) {
+          activeObj.parts.forEach(part => {
+            const target = explodedActive ? part.offset : new THREE.Vector3(0, 0, 0);
+            part.mesh.position.lerp(target, 0.1);
+          });
+        }
       }
 
       renderer.render(scene, camera);
@@ -1267,7 +1379,8 @@
     // Event Listeners
     conceptBtns.forEach(btn => {
       btn.addEventListener('click', () => {
-        const id = parseInt(btn.getAttribute('data-id'));
+        const rawId = btn.getAttribute('data-id');
+        const id = rawId === 'all' ? 'all' : parseInt(rawId);
         switchConcept(id);
       });
     });

@@ -273,6 +273,10 @@ class WebRemoteRequestHandler(BaseHTTPRequestHandler):
 
         # Enter WebSocket bidirectional framing loop
         sock: socket.socket = self.connection
+        try:
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        except Exception:
+            pass
         sock.settimeout(60.0)  # 60s idle timeout
         self.server_instance._register_ws_client(sock)
 
@@ -620,6 +624,20 @@ class WebRemoteServer:
                     if hasattr(self.controller, "toggle_mode"):
                         self.controller.toggle_mode()
 
+                elif act in ("launch_app", "launch") or act.startswith("launch_") or act in (
+                    "youtube", "netflix", "prime", "prime_video", "browser", "explorer"
+                ):
+                    if hasattr(self.controller, "synth") and hasattr(self.controller.synth, "launch_app"):
+                        app_name = extra_data.get(
+                            "app", extra_data.get("name", act[7:] if act.startswith("launch_") else act)
+                        )
+                        self.controller.synth.launch_app(str(app_name))
+
+                elif act in ("switch_monitor", "select_monitor"):
+                    if hasattr(self.controller, "synth") and hasattr(self.controller.synth, "switch_monitor"):
+                        m_id = extra_data.get("monitor_id", extra_data.get("monitor", int(dx)))
+                        self.controller.synth.switch_monitor(int(m_id))
+
             except Exception:
                 pass
 
@@ -723,12 +741,30 @@ class WebRemoteServer:
                     source = "airpods"
 
         screen = {"x": 0, "y": 0, "width": 1920, "height": 1080}
-        if self.controller and hasattr(self.controller, "synth") and hasattr(self.controller.synth, "get_screen_bounds"):
-            try:
-                vx, vy, vw, vh = self.controller.synth.get_screen_bounds()
-                screen = {"x": int(vx), "y": int(vy), "width": int(vw), "height": int(vh)}
-            except Exception:
-                pass
+        monitors: List[dict] = []
+        if self.controller and hasattr(self.controller, "synth"):
+            if hasattr(self.controller.synth, "get_screen_bounds"):
+                try:
+                    vx, vy, vw, vh = self.controller.synth.get_screen_bounds()
+                    screen = {"x": int(vx), "y": int(vy), "width": int(vw), "height": int(vh)}
+                except Exception:
+                    pass
+            if hasattr(self.controller.synth, "get_monitors"):
+                try:
+                    monitors = list(self.controller.synth.get_monitors())
+                except Exception:
+                    pass
+
+        if not monitors:
+            monitors = [{
+                "id": 0,
+                "name": "Display 1",
+                "x": screen["x"],
+                "y": screen["y"],
+                "width": screen["width"],
+                "height": screen["height"],
+                "primary": True,
+            }]
 
         return {
             "cursor": cursor,
@@ -737,6 +773,7 @@ class WebRemoteServer:
             "tracking_enabled": tracking_enabled,
             "mode": mode,
             "screen": screen,
+            "monitors": monitors,
             "timestamp": now,
         }
 

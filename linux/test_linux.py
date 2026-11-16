@@ -187,5 +187,79 @@ class TestAirPodsBinaryParser(unittest.TestCase):
         self.assertIsInstance(sample.roll, float)
 
 
+class TestLinuxUInput(unittest.TestCase):
+    def test_udev_rule_generation(self):
+        from uinput import generate_udev_rule, check_uinput_permissions
+        rule = generate_udev_rule()
+        self.assertIn('KERNEL=="uinput"', rule)
+        self.assertIn('GROUP="input"', rule)
+        has_perm, msg = check_uinput_permissions()
+        self.assertIsInstance(has_perm, bool)
+        self.assertIsInstance(msg, str)
+
+    def test_uinput_device_relative_and_absolute(self):
+        from uinput import UInputDevice
+        dev = UInputDevice(screen_width=1920, screen_height=1080)
+        self.assertEqual(dev.cur_x, 960.0)
+        self.assertEqual(dev.cur_y, 540.0)
+
+        # 1. Test relative movement
+        x, y = dev.move_relative(10.5, -20.5)
+        self.assertEqual(x, 970.5)
+        self.assertEqual(y, 519.5)
+
+        # 2. Test absolute movement
+        x, y = dev.move_absolute(100.0, 200.0)
+        self.assertEqual(x, 100.0)
+        self.assertEqual(y, 200.0)
+
+        # Clamping
+        x, y = dev.move_absolute(5000.0, -50.0)
+        self.assertEqual(x, 1920.0)
+        self.assertEqual(y, 0.0)
+
+        # 3. Test handle_motion_packet (Relative)
+        x, y = dev.handle_motion_packet({"type": "relative", "dx": -10.0, "dy": 50.0})
+        self.assertEqual(x, 1910.0)
+        self.assertEqual(y, 50.0)
+
+        # 4. Test handle_motion_packet (Absolute)
+        x, y = dev.handle_motion_packet({"type": "absolute", "x": 640.0, "y": 480.0})
+        self.assertEqual(x, 640.0)
+        self.assertEqual(y, 480.0)
+
+        # 5. Test handle_motion_packet (Normalized 0..1 coordinates)
+        x, y = dev.handle_motion_packet({"type": "absolute", "x": 0.5, "y": 0.5})
+        self.assertEqual(x, 960.0)
+        self.assertEqual(y, 540.0)
+
+        # 6. Test handle_motion_packet (Tuple)
+        x, y = dev.handle_motion_packet((5.0, 5.0))
+        self.assertEqual(x, 965.0)
+        self.assertEqual(y, 545.0)
+
+        # 7. Button and Drag states
+        self.assertFalse(dev.is_left_button_down)
+        locked = dev.toggle_drag()
+        self.assertTrue(locked)
+        self.assertTrue(dev.is_left_button_down)
+        locked = dev.toggle_drag()
+        self.assertFalse(locked)
+        self.assertFalse(dev.is_left_button_down)
+
+        dev.click("left", count=1)
+        dev.scroll(vertical=1, horizontal=0)
+        dev.close()
+
+    def test_event_synthesizer_integration(self):
+        from event_synthesizer import LinuxEventSynthesizer
+        synth = LinuxEventSynthesizer()
+        synth.move_relative(5.0, -5.0)
+        pos = synth.get_current_location()
+        self.assertIsInstance(pos, tuple)
+        self.assertEqual(len(pos), 2)
+        synth.close()
+
+
 if __name__ == "__main__":
     unittest.main()

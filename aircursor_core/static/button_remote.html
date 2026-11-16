@@ -265,6 +265,156 @@
       gap: 4px;
     }
 
+    /* Multi-Monitor Selector Bar */
+    .monitor-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      overflow-x: auto;
+      padding: 2px 0 4px 0;
+      scrollbar-width: none;
+    }
+    .monitor-bar::-webkit-scrollbar { display: none; }
+    .monitor-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-dim);
+      letter-spacing: 0.5px;
+      flex-shrink: 0;
+    }
+    .monitor-pill-group {
+      display: flex;
+      gap: 5px;
+      flex-wrap: nowrap;
+    }
+    .btn-mon {
+      padding: 3px 9px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(15, 23, 42, 0.85);
+      color: var(--text-muted);
+      font-size: 10px;
+      font-weight: 700;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      touch-action: manipulation;
+    }
+    .btn-mon:active {
+      transform: scale(0.94);
+    }
+    .btn-mon.active {
+      background: rgba(0, 240, 255, 0.22);
+      border-color: var(--cyan);
+      color: var(--cyan);
+      box-shadow: 0 0 10px var(--cyan-glow);
+    }
+
+    /* App & TV Launch Macros Card */
+    .macros-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      backdrop-filter: blur(14px);
+    }
+    .macros-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .macros-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: var(--cyan);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .macros-tag {
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 6px;
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--emerald);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      text-transform: uppercase;
+    }
+    .macros-row {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+    }
+    .btn-macro {
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 8px 2px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      color: var(--text-main);
+      font-size: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      touch-action: manipulation;
+    }
+    .btn-macro svg {
+      width: 18px;
+      height: 18px;
+      transition: transform 0.1s ease;
+    }
+    .btn-macro:active {
+      transform: scale(0.92);
+    }
+    .btn-macro-yt {
+      background: rgba(239, 68, 68, 0.12);
+      border-color: rgba(239, 68, 68, 0.3);
+      color: #fca5a5;
+    }
+    .btn-macro-yt svg { fill: #ef4444; }
+    .btn-macro-yt:active { background: rgba(239, 68, 68, 0.3); box-shadow: 0 0 12px rgba(239, 68, 68, 0.5); }
+
+    .btn-macro-netflix {
+      background: rgba(220, 38, 38, 0.12);
+      border-color: rgba(220, 38, 38, 0.3);
+      color: #f87171;
+    }
+    .btn-macro-netflix svg { fill: #e50914; }
+    .btn-macro-netflix:active { background: rgba(220, 38, 38, 0.3); box-shadow: 0 0 12px rgba(220, 38, 38, 0.5); }
+
+    .btn-macro-prime {
+      background: rgba(0, 168, 225, 0.12);
+      border-color: rgba(0, 168, 225, 0.3);
+      color: #7dd3fc;
+    }
+    .btn-macro-prime svg { stroke: #00a8e1; }
+    .btn-macro-prime:active { background: rgba(0, 168, 225, 0.3); box-shadow: 0 0 12px rgba(0, 168, 225, 0.5); }
+
+    .btn-macro-browser {
+      background: rgba(16, 185, 129, 0.12);
+      border-color: rgba(16, 185, 129, 0.3);
+      color: #6ee7b7;
+    }
+    .btn-macro-browser svg { stroke: #10b981; }
+    .btn-macro-browser:active { background: rgba(16, 185, 129, 0.3); box-shadow: 0 0 12px rgba(16, 185, 129, 0.5); }
+
+    .btn-macro-explorer {
+      background: rgba(245, 158, 11, 0.12);
+      border-color: rgba(245, 158, 11, 0.3);
+      color: #fcd34d;
+    }
+    .btn-macro-explorer svg { stroke: #f59e0b; }
+    .btn-macro-explorer:active { background: rgba(245, 158, 11, 0.3); box-shadow: 0 0 12px rgba(245, 158, 11, 0.5); }
+
     /* -------------------------------------------------------------
        TACTICAL POWER & SCREEN ACTION STRIP
        ------------------------------------------------------------- */
@@ -665,6 +815,15 @@
         <span id="screenResTag">1920 × 1080</span>
       </div>
 
+      <!-- Multi-Monitor Selector Bar -->
+      <div class="monitor-bar" id="monitorBar">
+        <span class="monitor-label">DISPLAY:</span>
+        <div class="monitor-pill-group" id="monitorPills">
+          <button class="btn-mon active" data-mon="all">All Screens</button>
+          <button class="btn-mon" data-mon="0">Display 1</button>
+        </div>
+      </div>
+
       <!-- Interactive 16:9 Screen Surface -->
       <div class="screen-canvas-wrapper" id="screenSurface">
         <div class="screen-grid"></div>
@@ -679,6 +838,36 @@
         <div class="screen-tap-hint">
           <span>●</span> Tap screen to jump cursor
         </div>
+      </div>
+    </section>
+
+    <!-- APP & TV LAUNCH MACROS -->
+    <section class="macros-card">
+      <div class="macros-header">
+        <span class="macros-title"><span>⚡</span> APP & TV LAUNCH MACROS</span>
+        <span class="macros-tag">Instant Launch</span>
+      </div>
+      <div class="macros-row">
+        <button class="btn-macro btn-macro-yt" data-macro="youtube" title="Launch YouTube">
+          <svg viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+          <span>YouTube</span>
+        </button>
+        <button class="btn-macro btn-macro-netflix" data-macro="netflix" title="Launch Netflix">
+          <svg viewBox="0 0 24 24"><path d="M5.398 0v24h4.15V9.43l5.378 14.57h4.085V0h-4.15v14.57L9.483 0z"/></svg>
+          <span>Netflix</span>
+        </button>
+        <button class="btn-macro btn-macro-prime" data-macro="prime" title="Launch Prime Video">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <span>Prime</span>
+        </button>
+        <button class="btn-macro btn-macro-browser" data-macro="browser" title="Launch Web Browser">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          <span>Browser</span>
+        </button>
+        <button class="btn-macro btn-macro-explorer" data-macro="explorer" title="Launch File Explorer">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          <span>Files</span>
+        </button>
       </div>
     </section>
 
@@ -866,6 +1055,8 @@
       dpadMode: 'arrows', // 'arrows' or 'nudge'
       nudgeStep: 25,      // pixels per nudge
       screen: { x: 0, y: 0, width: 1920, height: 1080 },
+      monitors: [],
+      selectedMonitor: 'all', // 'all' or monitor index 0, 1...
       cursor: { x: 960, y: 540 },
     };
 
@@ -878,10 +1069,12 @@
     const cursorCoords = document.getElementById('cursorCoords');
     const screenResTag = document.getElementById('screenResTag');
     const screenSurface = document.getElementById('screenSurface');
+    const monitorPills = document.getElementById('monitorPills');
 
-    function vibrate(ms = 14) {
+    // Mobile Haptic Feedback with Pattern Support
+    function vibrate(pattern = 12) {
       if (navigator.vibrate) {
-        try { navigator.vibrate(ms); } catch (e) {}
+        try { navigator.vibrate(pattern); } catch (e) {}
       }
     }
 
@@ -892,6 +1085,61 @@
       toast.classList.add('show');
       clearTimeout(toastTimer);
       toastTimer = setTimeout(() => toast.classList.remove('show'), 1800);
+    }
+
+    // =========================================================================
+    // MULTI-MONITOR SELECTION & BOUNDS
+    // =========================================================================
+    function getActiveScreenBounds() {
+      if (state.selectedMonitor !== 'all' && state.monitors[state.selectedMonitor]) {
+        return state.monitors[state.selectedMonitor];
+      }
+      return state.screen;
+    }
+
+    function updateMonitors(monitorsList) {
+      if (!Array.isArray(monitorsList) || monitorsList.length === 0) return;
+      state.monitors = monitorsList;
+      if (!monitorPills) return;
+
+      let html = `<button class="btn-mon ${state.selectedMonitor === 'all' ? 'active' : ''}" data-mon="all">All Screens</button>`;
+      monitorsList.forEach((m, idx) => {
+        const isSel = state.selectedMonitor === idx;
+        const rawName = (m.name || `Display ${idx + 1}`).replace(/^\\\\.\\/, '');
+        html += `<button class="btn-mon ${isSel ? 'active' : ''}" data-mon="${idx}">${rawName} (${m.width}×${m.height})</button>`;
+      });
+      monitorPills.innerHTML = html;
+      wireMonitorPills();
+    }
+
+    function wireMonitorPills() {
+      document.querySelectorAll('.btn-mon').forEach(btn => {
+        const handler = (e) => {
+          e.preventDefault();
+          const val = btn.dataset.mon;
+          state.selectedMonitor = val === 'all' ? 'all' : parseInt(val, 10);
+          vibrate([12, 20, 12]);
+          document.querySelectorAll('.btn-mon').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+
+          if (state.selectedMonitor !== 'all') {
+            const m = state.monitors[state.selectedMonitor];
+            if (m) {
+              screenResTag.textContent = `${m.width} × ${m.height}`;
+              const cx = m.x + m.width / 2;
+              const cy = m.y + m.height / 2;
+              updateCursorPosition(cx, cy);
+              sendAction('switch_monitor', m.id, 0, { monitor_id: m.id });
+              showToast(`Display ${state.selectedMonitor + 1} (${m.width}×${m.height})`, '🖥️');
+            }
+          } else {
+            screenResTag.textContent = `${state.screen.width} × ${state.screen.height}`;
+            showToast('All Screens Active', '🖥️');
+            updateCursorPosition(state.cursor.x, state.cursor.y);
+          }
+        };
+        btn.addEventListener('pointerdown', handler);
+      });
     }
 
     // =========================================================================
@@ -921,6 +1169,7 @@
               }
               if (data.cursor) updateCursorPosition(data.cursor.x, data.cursor.y);
               if (data.screen) updateScreenResolution(data.screen);
+              if (data.monitors) updateMonitors(data.monitors);
               if (data.tracking_enabled !== undefined) {
                 state.isTracking = data.tracking_enabled;
                 updateTrackingUI();
@@ -948,7 +1197,6 @@
     }
 
     function sendAction(action, dx = 0.0, dy = 0.0, extra = {}) {
-      vibrate(15);
       const payload = { action, dx: Number(dx), dy: Number(dy), ...extra };
 
       if (state.wsConnected && state.ws.readyState === WebSocket.OPEN) {
@@ -976,6 +1224,7 @@
             statusText.textContent = `${rtt}ms (HTTP)`;
             if (data.cursor) updateCursorPosition(data.cursor.x, data.cursor.y);
             if (data.screen) updateScreenResolution(data.screen);
+            if (data.monitors) updateMonitors(data.monitors);
             if (data.tracking_enabled !== undefined) {
               state.isTracking = data.tracking_enabled;
               updateTrackingUI();
@@ -996,8 +1245,9 @@
       state.cursor.y = Math.round(y);
       cursorCoords.textContent = `X: ${state.cursor.x}  Y: ${state.cursor.y}`;
 
-      const pctX = ((x - state.screen.x) / state.screen.width) * 100;
-      const pctY = ((y - state.screen.y) / state.screen.height) * 100;
+      const bounds = getActiveScreenBounds();
+      const pctX = ((x - bounds.x) / bounds.width) * 100;
+      const pctY = ((y - bounds.y) / bounds.height) * 100;
       cursorDot.style.left = `${Math.max(2, Math.min(98, pctX))}%`;
       cursorDot.style.top = `${Math.max(2, Math.min(98, pctY))}%`;
     }
@@ -1005,10 +1255,12 @@
     function updateScreenResolution(screen) {
       if (!screen || !screen.width || !screen.height) return;
       state.screen = screen;
-      screenResTag.textContent = `${screen.width} × ${screen.height}`;
+      if (state.selectedMonitor === 'all') {
+        screenResTag.textContent = `${screen.width} × ${screen.height}`;
+      }
     }
 
-    // Touch on Virtual Screen: Jump / Teleport cursor directly
+    // Touch on Virtual Screen: Instant Sub-15ms Jump / Teleport cursor directly
     function handleScreenTouch(e) {
       e.preventDefault();
       const rect = screenSurface.getBoundingClientRect();
@@ -1016,26 +1268,27 @@
       const localX = Math.max(0, Math.min(rect.width, touch.clientX - rect.left));
       const localY = Math.max(0, Math.min(rect.height, touch.clientY - rect.top));
 
-      // Calculate absolute desktop coordinates
-      const targetX = state.screen.x + (localX / rect.width) * state.screen.width;
-      const targetY = state.screen.y + (localY / rect.height) * state.screen.height;
+      const bounds = getActiveScreenBounds();
+      const targetX = bounds.x + (localX / rect.width) * bounds.width;
+      const targetY = bounds.y + (localY / rect.height) * bounds.height;
 
+      // Immediate optimistic update (0ms lag)
       updateCursorPosition(targetX, targetY);
+      vibrate(15);
       sendAction('jump_to', targetX, targetY);
-      vibrate(18);
     }
 
     screenSurface.addEventListener('touchstart', handleScreenTouch, { passive: false });
     screenSurface.addEventListener('touchmove', handleScreenTouch, { passive: false });
-    screenSurface.addEventListener('mousedown', (e) => {
+    screenSurface.addEventListener('pointerdown', (e) => {
       handleScreenTouch(e);
       const onMove = (ev) => handleScreenTouch(ev);
       const onUp = () => {
-        window.removeEventListener('mousemove', onMove);
-        window.removeEventListener('mouseup', onUp);
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
       };
-      window.addEventListener('mousemove', onMove);
-      window.addEventListener('mouseup', onUp);
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
     });
 
     // =========================================================================
@@ -1167,6 +1420,32 @@
     btnSendText.addEventListener('click', submitText);
     txtInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') submitText();
+    });
+
+    // =========================================================================
+    // APP & TV LAUNCH MACROS (YouTube, Netflix, Prime Video, Browser, Explorer)
+    // =========================================================================
+    document.querySelectorAll('[data-macro]').forEach(btn => {
+      const launchHandler = (e) => {
+        e.preventDefault();
+        const macro = btn.dataset.macro;
+        vibrate([20, 35, 20]);
+        sendAction(`launch_${macro}`, 0, 0, { app: macro });
+        const nameMap = {
+          youtube: 'YouTube',
+          netflix: 'Netflix',
+          prime: 'Prime Video',
+          browser: 'Web Browser',
+          explorer: 'File Explorer'
+        };
+        showToast(`Launching ${nameMap[macro] || macro}...`, '🚀');
+      };
+      btn.addEventListener('pointerdown', launchHandler);
+    });
+
+    // Sub-15ms Low-Latency Touch Feedback for buttons
+    document.querySelectorAll('.btn-tactical, .btn-control, .btn-dpad, .btn-dpad-center').forEach(btn => {
+      btn.addEventListener('pointerdown', () => vibrate(12));
     });
 
     // Start WebSocket

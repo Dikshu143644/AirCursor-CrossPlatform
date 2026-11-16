@@ -146,9 +146,16 @@ class VisionTracker:
         self._fps_count: int = 0
         self._fps_timer: float = time.time()
 
-        # Haar cascade classifier cache if available
+        # Haar cascade classifier, CLAHE equalizer, and morphological kernel cache
         self._face_cascade = None
+        self._clahe = None
+        self._morph_kernel = None
         if CV2_AVAILABLE:
+            try:
+                self._clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+                self._morph_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+            except Exception:
+                pass
             self._init_cascades()
 
     @property
@@ -317,13 +324,16 @@ class VisionTracker:
         h, w = frame.shape[:2]
         result = VisionFrameResult(timestamp=now)
 
+        # Compute unified illumination-robust skin mask once per frame
+        skin_mask = self._get_skin_mask(frame)
+
         # -------------------------------------------------------------
         # 1. Head / Face & Nose Pose Tracking
         # -------------------------------------------------------------
         face_box = None
         face_sample = None
         if self.settings.enable_head_tracking:
-            face_box = self._detect_face(frame)
+            face_box = self._detect_face(frame, skin_mask=skin_mask)
             if face_box is not None:
                 fx, fy, fw, fh = face_box
                 cx = float(fx + fw / 2.0)
@@ -372,7 +382,7 @@ class VisionTracker:
         # -------------------------------------------------------------
         hand_sample = None
         if self.settings.enable_hand_gestures or getattr(self.settings, "enable_hand_tracking", True):
-            hand_contour, hierarchy = self._detect_hand_contour(frame, face_box=face_box)
+            hand_contour, hierarchy = self._detect_hand_contour(frame, face_box=face_box, skin_mask=skin_mask)
             if hand_contour is not None and len(hand_contour) >= 5:
                 hx, hy, hw, hh = cv2.boundingRect(hand_contour)
                 result.hand_detected = True
@@ -461,7 +471,46 @@ class VisionTracker:
 
         return result
 
-    def _detect_face(self, frame: np.ndarray) -> Optional[Tuple[int, int, int, int]]:
+    def _get_skin_mask(self, frame: np.ndarray) -> np.ndarray:
+        """Dual-space illumination-tolerant skin segmentation combining YCrCb and HSV with CLAHE."""
+        h, w = frame.shape[:2]
+
+        # 1. YCrCb with CLAHE luminance equalization for shadow and backlight immunity
+        ycrcb = cv2.cvtColor(frame, cv2.COLOR_BGR2YCrCb)
+        if self._clahe is not None:
+            try:
+                ycrcb[:, :, 0] = self._clahe.apply(ycrcb[:, :, 0])
+            except Exception:
+                pass
+
+        mask_ycrcb = cv2.inRange(
+            ycrcb, np.array([10, 130, 75]), np.array([255, 180, 135])
+        )
+
+        # 2. HSV color segmentation with expanded low-light and bright-light tolerances
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        mask_hsv1 = cv2.inRange(hsv, np.array([0, 15, 25]), np.array([28, 255, 255]))
+        mask_hsv2 = cv2.inRange(hsv, np.array([165, 15, 25]), np.array([180, 255, 255]))
+        mask_hsv = cv2.bitwise_or(mask_hsv1, mask_hsv2)
+
+        # 3. Dual-space intersection with dynamic fallback for extreme lighting
+        skin_mask = cv2.bitwise_and(mask_ycrcb, mask_hsv)
+        if cv2.countNonZero(skin_mask) < (w * h * 0.005):
+            skin_mask = mask_ycrcb
+
+        # 4. Morphological filtering to clean noise and bridge shadows
+        kernel = (
+            self._morph_kernel
+            if self._morph_kernel is not None
+            else cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        )
+        skin_mask = cv2.morphologyEx(skin_mask, cv2.MORPH_OPEN, kernel, iterations=1)
+        skin_mask = cv2.morphologyEx(skin_mask, cv2.MORPH_CLOSE, kernel, iterations=1)
+        return skin_mask
+
+    def _detect_face(
+        self, frame: np.ndarray, skin_mask: Optional[np.ndarray] = None
+    ) -> Optional[Tuple[int, int, int, int]]:
         """Detects the primary face bounding box via Haar Cascades or Skin Color Morphology."""
         h, w = frame.shape[:2]
 
@@ -476,12 +525,8 @@ class VisionTracker:
                 return (int(largest[0]), int(largest[1]), int(largest[2]), int(largest[3]))
 
         # Method B: Robust Skin Color blob in upper region of frame
-        ycrcb = cv2.cvtColor(frame, cv2.COLOR_BGR2YCrCb)
-        skin_mask = cv2.inRange(ycrcb, np.array([0, 133, 77]), np.array([255, 173, 127]))
-
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
-        skin_mask = cv2.morphologyEx(skin_mask, cv2.MORPH_OPEN, kernel, iterations=1)
-        skin_mask = cv2.morphologyEx(skin_mask, cv2.MORPH_CLOSE, kernel, iterations=2)
+        if skin_mask is None:
+            skin_mask = self._get_skin_mask(frame)
 
         contours, _ = cv2.findContours(skin_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         if not contours:
@@ -535,23 +580,18 @@ class VisionTracker:
             return 0
 
     def _detect_hand_contour(
-        self, frame: np.ndarray, face_box: Optional[Tuple[int, int, int, int]] = None
+        self,
+        frame: np.ndarray,
+        face_box: Optional[Tuple[int, int, int, int]] = None,
+        skin_mask: Optional[np.ndarray] = None,
     ) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
         """Detects hand contour by segmenting skin regions and masking out the face."""
         h, w = frame.shape[:2]
 
-        # Generate skin mask with dual YCrCb + HSV color spaces for lighting tolerance
-        ycrcb = cv2.cvtColor(frame, cv2.COLOR_BGR2YCrCb)
-        mask_ycrcb = cv2.inRange(ycrcb, np.array([0, 130, 75]), np.array([255, 180, 135]))
+        if skin_mask is None:
+            skin_mask = self._get_skin_mask(frame)
 
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        mask_hsv1 = cv2.inRange(hsv, np.array([0, 15, 35]), np.array([28, 255, 255]))
-        mask_hsv2 = cv2.inRange(hsv, np.array([165, 15, 35]), np.array([180, 255, 255]))
-        mask_hsv = cv2.bitwise_or(mask_hsv1, mask_hsv2)
-
-        skin_mask = cv2.bitwise_and(mask_ycrcb, mask_hsv)
-        if cv2.countNonZero(skin_mask) < (w * h * 0.005):
-            skin_mask = mask_ycrcb
+        hand_mask = skin_mask.copy()
 
         # If a face was detected, zero out the face region with a margin so it isn't mistaken for a hand
         if face_box is not None:
@@ -562,14 +602,10 @@ class VisionTracker:
             y0 = max(0, fy - margin_y)
             x1 = min(w, fx + fw + margin_x)
             y1 = min(h, fy + fh + margin_y)
-            skin_mask[y0:y1, x0:x1] = 0
-
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-        skin_mask = cv2.morphologyEx(skin_mask, cv2.MORPH_OPEN, kernel, iterations=1)
-        skin_mask = cv2.morphologyEx(skin_mask, cv2.MORPH_CLOSE, kernel, iterations=2)
+            hand_mask[y0:y1, x0:x1] = 0
 
         # RETR_CCOMP retrieves external contours and inner holes (valuable for pinch loops)
-        contours, hierarchy = cv2.findContours(skin_mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
+        contours, hierarchy = cv2.findContours(hand_mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
         if not contours:
             return None, None
 

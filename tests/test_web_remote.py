@@ -485,9 +485,60 @@ class TestWebRemoteServer(unittest.TestCase):
             self.assertIn("cursor", status)
             self.assertIsInstance(status["cursor"]["x"], float)
             self.assertIsInstance(status["cursor"]["y"], float)
+            self.assertIn("monitors", status)
+            self.assertIsInstance(status["monitors"], list)
+            self.assertGreaterEqual(len(status["monitors"]), 1)
+            primary_mon = status["monitors"][0]
+            self.assertIn("width", primary_mon)
+            self.assertIn("height", primary_mon)
+            self.assertGreater(primary_mon["width"], 0)
+            self.assertGreater(primary_mon["height"], 0)
+
+            # Test App & TV Launch Macros routing
+            from unittest.mock import patch
+            with patch("webbrowser.open", return_value=True), \
+                 patch("subprocess.Popen", return_value=None), \
+                 patch("os.startfile", create=True, return_value=None):
+                for macro in ("youtube", "netflix", "prime", "browser", "explorer"):
+                    res_macro = self.server.dispatch_action(f"launch_{macro}")
+                    self.assertTrue(res_macro)
+
+            # Test Multi-Monitor Switching routing
+            res_mon = self.server.dispatch_action("switch_monitor", extra={"monitor_id": 0})
+            self.assertTrue(res_mon)
 
         finally:
             controller.stop()
+
+    def test_multi_monitor_enumeration(self):
+        """Verifies Win32 EventSynthesizer monitor enumeration and bounding rects."""
+        from event_synthesizer import EventSynthesizer
+
+        monitors = EventSynthesizer.get_monitors()
+        self.assertIsInstance(monitors, list)
+        self.assertGreaterEqual(len(monitors), 1)
+        for m in monitors:
+            self.assertIn("id", m)
+            self.assertIn("name", m)
+            self.assertIn("width", m)
+            self.assertIn("height", m)
+            self.assertIn("primary", m)
+            self.assertGreater(m["width"], 0)
+            self.assertGreater(m["height"], 0)
+
+    def test_app_launch_macros(self):
+        """Verifies EventSynthesizer launch_app macro handling."""
+        from event_synthesizer import EventSynthesizer
+        from unittest.mock import patch
+
+        synth = EventSynthesizer()
+        with patch("webbrowser.open", return_value=True), \
+             patch("subprocess.Popen", return_value=None), \
+             patch("os.startfile", create=True, return_value=None):
+            for app in ("youtube", "netflix", "prime", "browser", "explorer"):
+                res = synth.launch_app(app)
+                self.assertTrue(res, f"Macro for {app} should return True")
+            self.assertFalse(synth.launch_app("non_existent_unsupported_app_xyz"))
 
 
 if __name__ == "__main__":

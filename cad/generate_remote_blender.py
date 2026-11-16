@@ -782,14 +782,39 @@ def build_concept_5_airdeck_controller(palette: dict) -> list[bpy.types.Object]:
     return objects
 
 
+def set_linear_interpolation(action):
+    """Sets linear keyframe interpolation across both legacy and Blender 5.0+ layered actions."""
+    if not action:
+        return
+    # Legacy actions
+    if hasattr(action, "fcurves"):
+        for fc in action.fcurves:
+            for kp in fc.keyframe_points:
+                kp.interpolation = 'LINEAR'
+    # Blender 5.0+ layered actions
+    if hasattr(action, "layers"):
+        for layer in action.layers:
+            for strip in getattr(layer, "strips", []):
+                for cb in getattr(strip, "channelbags", []):
+                    for fc in getattr(cb, "fcurves", []):
+                        for kp in fc.keyframe_points:
+                            kp.interpolation = 'LINEAR'
+
+
 # ============================================================================
-# STUDIO LIGHTING & CAMERA RIG
+# STUDIO LIGHTING & CAMERA RIG WITH 360-DEGREE TURNTABLE ANIMATION
 # ============================================================================
 
-def setup_studio_rig(objects: list[bpy.types.Object]) -> bpy.types.Object:
-    """Configures 3-point studio lighting, shadow catcher plane, and framed camera."""
+def setup_studio_rig(objects: list[bpy.types.Object], add_turntable: bool = True) -> tuple[bpy.types.Object, bpy.types.Object]:
+    """Configures 3-point studio lighting, shadow catcher plane, framed camera,
+    and turntable orbit keyframes (360-degree rotation over 120 frames at 30fps)."""
     if not IS_BLENDER or not objects:
         return None
+
+    scene = bpy.context.scene
+    scene.frame_start = 1
+    scene.frame_end = 120
+    scene.render.fps = 30
 
     # Calculate bounding box of all objects
     min_co = [float("inf")] * 3
@@ -852,11 +877,20 @@ def setup_studio_rig(objects: list[bpy.types.Object]) -> bpy.types.Object:
     ground.name = "Studio_ShadowCatcher"
     ground.is_shadow_catcher = True
 
-    # 5. Camera Framed at 3/4 Perspective Angle
+    # 5. Turntable Pivot Empty (Centered on model)
+    pivot = bpy.data.objects.new("Camera_Pivot_Turntable", None)
+    pivot.empty_display_type = 'ARROWS'
+    pivot.empty_display_size = diag * 0.5
+    pivot.location = center
+    bpy.context.scene.collection.objects.link(pivot)
+
+    # 6. Camera Framed at 3/4 Perspective Angle
     bpy.ops.object.camera_add(location=(0, 0, 0))
     cam = bpy.context.active_object
     cam.name = "Studio_Camera_Beauty"
     cam.data.lens = 85.0  # 85mm portrait telephoto
+    cam.data.clip_start = 0.005
+    cam.data.clip_end = 100.0
     bpy.context.scene.camera = cam
 
     # Position camera back along 3/4 vector
@@ -868,6 +902,31 @@ def setup_studio_rig(objects: list[bpy.types.Object]) -> bpy.types.Object:
     direction = center - cam_pos
     rot_quat = direction.to_track_quat('-Z', 'Y')
     cam.rotation_euler = rot_quat.to_euler()
+
+    # Parent camera to pivot maintaining world orientation
+    cam.parent = pivot
+    cam.matrix_parent_inverse = pivot.matrix_world.inverted()
+
+    # 7. Add Turntable 360-Degree Orbit Animation Keyframes (120 frames @ 30fps)
+    if add_turntable:
+        # Frame 1: 0 degrees
+        pivot.rotation_euler = (0, 0, 0)
+        pivot.keyframe_insert(data_path="rotation_euler", frame=1)
+
+        # Frame 120: 357 degrees (linear progression)
+        pivot.rotation_euler = (0, 0, 2 * math.pi * (119.0 / 120.0))
+        pivot.keyframe_insert(data_path="rotation_euler", frame=120)
+
+        # Frame 121: 360 degrees (seamless loop return point)
+        pivot.rotation_euler = (0, 0, 2 * math.pi)
+        pivot.keyframe_insert(data_path="rotation_euler", frame=121)
+
+        # Linear interpolation for continuous smooth 360-degree orbit
+        if pivot.animation_data and pivot.animation_data.action:
+            try:
+                set_linear_interpolation(pivot.animation_data.action)
+            except Exception:
+                pass
 
     return cam
 
@@ -928,6 +987,149 @@ def export_concept(concept_id: int, objects: list[bpy.types.Object], formats: li
                 print(f"[EXPORT] BLEND written: {out_file} ({out_file.stat().st_size} bytes)")
             except Exception as e:
                 print(f"[WARN] BLEND export error: {e}")
+
+
+# ============================================================================
+# UNIFIED ALL-5 PRODUCTS SHOWCASE SCENE & EXPORT
+# ============================================================================
+
+def build_all_5_products_showcase(output_dir: Path, export_formats: list[str] | None = None) -> list[bpy.types.Object]:
+    """Builds a unified 5-concept product showcase scene on a presentation pedestal
+    with 3D embossed nameplates, 3-point studio lighting, and 360-degree turntable
+    camera animation keyframes (120 frames at 30fps). Saves 'all_5_products_showcase.blend'."""
+    if not IS_BLENDER:
+        return []
+
+    print("\n>>> Generating Unified All-5 Products Showcase Scene...")
+    clear_scene()
+    palette = build_material_palette()
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    spacing = 0.16
+    offsets = {
+        1: -2 * spacing, # -0.32m (AirRing Pro)
+        2: -1 * spacing, # -0.16m (AirWand Elite)
+        3: 0.0,          #  0.00m (AirPebble Touch)
+        4: 1 * spacing,  # +0.16m (AirClip Mini)
+        5: 2 * spacing,  # +0.32m (AirDeck Controller)
+    }
+
+    builders = {
+        1: (build_concept_1_airring_pro, "01_AirRing_Pro", "AIRRING PRO"),
+        2: (build_concept_2_airwand_elite, "02_AirWand_Elite", "AIRWAND ELITE"),
+        3: (build_concept_3_airpebble_touch, "03_AirPebble_Touch", "AIRPEBBLE TOUCH"),
+        4: (build_concept_4_airclip_mini, "04_AirClip_Mini", "AIRCLIP MINI"),
+        5: (build_concept_5_airdeck_controller, "05_AirDeck_Controller", "AIRDECK CONTROLLER"),
+    }
+
+    showcase_col = bpy.data.collections.new("AirCursor_Remote_Concepts")
+    bpy.context.scene.collection.children.link(showcase_col)
+
+    all_showcase_objs = []
+
+    for cid, (builder_fn, col_name, title) in builders.items():
+        sub_col = bpy.data.collections.new(col_name)
+        showcase_col.children.link(sub_col)
+
+        objs = builder_fn(palette)
+        min_z = float("inf")
+        for o in objs:
+            for corner in o.bound_box:
+                w_co = o.matrix_world @ mathutils.Vector(corner)
+                min_z = min(min_z, w_co.z)
+
+        z_shift = -min_z if min_z != float("inf") else 0.0
+        x_shift = offsets[cid]
+
+        for o in objs:
+            if o.name in bpy.context.scene.collection.objects:
+                bpy.context.scene.collection.objects.unlink(o)
+            if o.name not in sub_col.objects:
+                sub_col.objects.link(o)
+            o.location.x += x_shift
+            o.location.z += z_shift
+            all_showcase_objs.append(o)
+
+    # Presentation Pedestal Plinth
+    bpy.ops.mesh.primitive_cube_add(
+        size=1.0,
+        location=(0, 0, -0.01)
+    )
+    pedestal = bpy.context.active_object
+    pedestal.name = "Showcase_Pedestal"
+    pedestal.scale = (0.85, 0.28, 0.02)
+    p_mat = get_or_create_material(
+        "Pedestal_Material",
+        base_color=(0.04, 0.05, 0.07, 1.0),
+        metallic=0.8,
+        roughness=0.35
+    )
+    assign_material(pedestal, p_mat)
+    bev = pedestal.modifiers.new(name="Bevel", type='BEVEL')
+    bev.width = 0.003
+    bev.segments = 3
+    all_showcase_objs.append(pedestal)
+
+    # 3D Embossed Metallic Text Labels
+    metal_mat = palette.get("Titanium_SpaceGray")
+    for cid, (_, _, title) in builders.items():
+        x_pos = offsets[cid]
+        font_curve = bpy.data.curves.new(type="FONT", name=f"Label_{cid}_Curve")
+        font_curve.body = title
+        font_curve.size = 0.010
+        font_curve.extrude = 0.0012
+        font_curve.bevel_depth = 0.0003
+        txt_obj = bpy.data.objects.new(f"Label_{cid}_{title.replace(' ', '_')}", font_curve)
+        bpy.context.scene.collection.objects.link(txt_obj)
+        txt_obj.location = (x_pos - 0.04, -0.09, 0.001)
+        txt_obj.rotation_euler = (math.radians(70), 0, 0)
+        if metal_mat:
+            txt_obj.data.materials.append(metal_mat)
+        all_showcase_objs.append(txt_obj)
+
+    # Configure studio lighting, camera, and turntable 360-deg animation (120 frames @ 30fps)
+    setup_studio_rig(all_showcase_objs, add_turntable=True)
+
+    # Save all_5_products_showcase.blend
+    blend_file = output_dir / "all_5_products_showcase.blend"
+    try:
+        bpy.ops.wm.save_as_mainfile(
+            filepath=str(blend_file.resolve()),
+            copy=True,
+            check_existing=False
+        )
+        print(f"[SHOWCASE] Unified blend written: {blend_file} ({blend_file.stat().st_size} bytes)")
+    except Exception as e:
+        print(f"[WARN] Showcase blend save error: {e}")
+
+    # Export formats if specified
+    if export_formats:
+        bpy.ops.object.select_all(action='SELECT')
+        for fmt in export_formats:
+            fmt_clean = fmt.strip().lower()
+            if fmt_clean in ("glb", "gltf", ".glb", ".gltf"):
+                glb_file = output_dir / "all_5_products_showcase.glb"
+                try:
+                    bpy.ops.export_scene.gltf(filepath=str(glb_file.resolve()), use_selection=True)
+                    print(f"[SHOWCASE] Unified GLB written: {glb_file} ({glb_file.stat().st_size} bytes)")
+                except Exception as e:
+                    print(f"[WARN] Showcase GLTF export error: {e}")
+            elif fmt_clean in ("obj", ".obj"):
+                obj_file = output_dir / "all_5_products_showcase.obj"
+                try:
+                    bpy.ops.wm.obj_export(filepath=str(obj_file.resolve()), export_selected_objects=True)
+                    print(f"[SHOWCASE] Unified OBJ written: {obj_file} ({obj_file.stat().st_size} bytes)")
+                except Exception as e:
+                    print(f"[WARN] Showcase OBJ export error: {e}")
+            elif fmt_clean in ("stl", ".stl"):
+                stl_file = output_dir / "all_5_products_showcase.stl"
+                try:
+                    bpy.ops.wm.stl_export(filepath=str(stl_file.resolve()), export_selected_objects=True)
+                    print(f"[SHOWCASE] Unified STL written: {stl_file} ({stl_file.stat().st_size} bytes)")
+                except Exception as e:
+                    print(f"[WARN] Showcase STL export error: {e}")
+
+    return all_showcase_objs
 
 
 # ============================================================================
@@ -1002,6 +1204,11 @@ def parse_cli_args(args_list: list[str]) -> argparse.Namespace:
         help="Output directory for rendered PNG images"
     )
     parser.add_argument(
+        "--showcase", "-s",
+        action="store_true",
+        help="Generate unified all-5 products showcase scene with turntable animation"
+    )
+    parser.add_argument(
         "--samples",
         type=int,
         default=16,
@@ -1072,6 +1279,12 @@ def run_generator(cli_args: list[str] | None = None):
         5: build_concept_5_airdeck_controller,
     }
 
+    # If only --showcase is requested without specific concepts
+    if args.showcase and args.concept.strip().lower() not in ("all", "1", "2", "3", "4", "5"):
+        build_all_5_products_showcase(output_dir, export_formats)
+        print("\n[SUCCESS] Unified showcase generation complete.")
+        return
+
     for cid in target_ids:
         print(f"\n>>> Generating Concept {cid}: {CONCEPTS_METADATA[cid]['title']}...")
         clear_scene()
@@ -1081,8 +1294,8 @@ def run_generator(cli_args: list[str] | None = None):
         objects = builders[cid](palette)
         print(f"    Built {len(objects)} procedural mesh components.")
 
-        # Setup lighting & camera
-        setup_studio_rig(objects)
+        # Setup lighting, camera & turntable animation (120 frames @ 30fps)
+        setup_studio_rig(objects, add_turntable=True)
 
         # Export models
         if export_formats:
@@ -1091,6 +1304,10 @@ def run_generator(cli_args: list[str] | None = None):
         # Render preview thumbnail
         if args.render:
             render_thumbnail(cid, render_dir, res_tuple, args.samples)
+
+    # If 'all' or '--showcase' was requested, generate the unified showcase scene
+    if args.concept.strip().lower() == "all" or args.showcase:
+        build_all_5_products_showcase(output_dir, export_formats)
 
     print("\n[SUCCESS] Procedural CAD generation complete for all requested concepts.")
 

@@ -89,6 +89,25 @@ class TestDockerfileSyntaxAndBestPractices(unittest.TestCase):
         self.assertIn("websockify", sh_content, "entrypoint.sh must handle websockify/noVNC")
         self.assertIn("trap", sh_content, "entrypoint.sh must handle signal trapping")
 
+    def test_dockerignore_configuration(self):
+        """Verifies .dockerignore exists and ignores VCS, caches, and build artifacts."""
+        dockerignore = ROOT_DIR / ".dockerignore"
+        self.assertTrue(dockerignore.exists(), ".dockerignore must exist at repository root")
+        text = dockerignore.read_text(encoding="utf-8")
+        self.assertIn(".git", text)
+        self.assertIn("__pycache__", text)
+        self.assertIn("dist", text)
+
+    def test_multi_arch_and_offline_build_compatibility(self):
+        """Verifies Dockerfile does not hardcode x86_64 binaries or require internet at container run."""
+        # Check base image is official multi-arch python
+        self.assertIn("python:3.12-slim", self.content)
+        # Ensure no architecture-locked packages (e.g. amd64.deb, x86_64-specific binaries)
+        self.assertNotIn("amd64.deb", self.content)
+        self.assertNotIn("x86_64-linux-gnu", self.content)
+        # Ensure zero runtime pip installs in CMD/ENTRYPOINT
+        self.assertNotIn("pip install", self.content.split("ENTRYPOINT")[1] if "ENTRYPOINT" in self.content else "")
+
 
 class TestDockerComposeConfig(unittest.TestCase):
     """Subject 06: docker-compose.yml schema, services, ports, environment, and healthchecks."""
@@ -260,6 +279,7 @@ class TestKubernetesOfflineManifests(unittest.TestCase):
             doc = yaml.safe_load(f)
 
         self.assertEqual(doc.get("kind"), "Ingress")
+        self.assertEqual(doc.get("spec", {}).get("ingressClassName"), "nginx")
         rules = doc["spec"].get("rules", [])
         self.assertGreaterEqual(len(rules), 1)
         paths = rules[0]["http"]["paths"]

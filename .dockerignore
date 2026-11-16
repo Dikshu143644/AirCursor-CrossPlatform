@@ -1,0 +1,14 @@
+.git
+.gitignore
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+android/.gradle
+android/build
+android/app/build
+dist/
+.vscode/
+.idea/
+*.log

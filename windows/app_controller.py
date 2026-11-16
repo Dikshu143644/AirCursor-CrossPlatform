@@ -957,6 +957,42 @@ class AppController:
         elif act in ("screenshot", "snip"):
             self.synth.screenshot()
             return True
+        # Multi-Monitor Selection
+        elif act in ("switch_monitor", "select_monitor"):
+            mon_id = 0
+            if extra and "monitor_id" in extra:
+                mon_id = int(extra["monitor_id"])
+            elif extra and "monitor" in extra:
+                mon_id = int(extra["monitor"])
+            elif abs(dx) > 0.001:
+                mon_id = int(dx)
+            if hasattr(self.synth, "switch_monitor"):
+                self.synth.switch_monitor(mon_id)
+                mx, my = self.synth.current_location()
+                self._cursor = Vec2(float(mx), float(my))
+            return True
+        # App & TV Launch Macros
+        elif act in ("launch_app", "launch"):
+            target_app = ""
+            if extra and "app" in extra:
+                target_app = str(extra["app"])
+            elif extra and "name" in extra:
+                target_app = str(extra["name"])
+            if target_app and hasattr(self.synth, "launch_app"):
+                return self.synth.launch_app(target_app)
+            return True
+        elif act.startswith("launch_") or act in (
+            "youtube",
+            "netflix",
+            "prime",
+            "prime_video",
+            "browser",
+            "explorer",
+        ):
+            clean_app = act[7:] if act.startswith("launch_") else act
+            if hasattr(self.synth, "launch_app"):
+                return self.synth.launch_app(clean_app)
+            return True
         elif act == "type_text":
             text = ""
             if extra and "text" in extra:

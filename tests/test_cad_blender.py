@@ -219,6 +219,74 @@ class TestAirCursorBlenderCAD(unittest.TestCase):
         except Exception:
             pass
 
+    def test_08_all_5_individual_cad_models_complete(self):
+        """Verifies that each of the 5 concepts has all 4 CAD formats (.blend, .glb, .obj, .stl) present."""
+        concept_keys = [
+            "concept_1_airring_pro",
+            "concept_2_airwand_elite",
+            "concept_3_airpebble_touch",
+            "concept_4_airclip_mini",
+            "concept_5_airdeck_controller",
+        ]
+        extensions = [".blend", ".glb", ".obj", ".stl"]
+
+        for key in concept_keys:
+            for ext in extensions:
+                model_file = MODELS_DIR / f"{key}{ext}"
+                self.assertTrue(
+                    model_file.exists(),
+                    f"Missing expected model file: {model_file.name}"
+                )
+                self.assertGreater(
+                    model_file.stat().st_size,
+                    100,
+                    f"Model file {model_file.name} is too small"
+                )
+
+    def test_09_unified_showcase_blend_model(self):
+        """Verifies that the unified all_5_products_showcase.blend model exists and has valid size."""
+        showcase_blend = MODELS_DIR / "all_5_products_showcase.blend"
+        self.assertTrue(
+            showcase_blend.exists(),
+            f"Missing unified showcase blend file: {showcase_blend}"
+        )
+        self.assertGreater(
+            showcase_blend.stat().st_size,
+            50000,
+            f"Showcase blend file {showcase_blend.name} is unexpectedly small"
+        )
+
+    def test_10_turntable_animation_keyframes(self):
+        """Verifies turntable camera animation keyframes (360-degree orbit over 120 frames at 30fps)."""
+        if not BLENDER_EXE.exists():
+            self.skipTest(f"Blender 5.1 not found at {BLENDER_EXE}")
+
+        check_script = (
+            "import bpy, sys\n"
+            "from pathlib import Path\n"
+            f"blend_path = Path(r'{MODELS_DIR / 'all_5_products_showcase.blend'}')\n"
+            "bpy.ops.wm.open_mainfile(filepath=str(blend_path))\n"
+            "scene = bpy.context.scene\n"
+            "assert scene.frame_start == 1, f'Expected frame_start=1, got {scene.frame_start}'\n"
+            "assert scene.frame_end == 120, f'Expected frame_end=120, got {scene.frame_end}'\n"
+            "assert scene.render.fps == 30, f'Expected fps=30, got {scene.render.fps}'\n"
+            "pivot = bpy.data.objects.get('Camera_Pivot_Turntable')\n"
+            "assert pivot is not None, 'Camera_Pivot_Turntable object missing'\n"
+            "assert pivot.animation_data is not None, 'Pivot has no animation data'\n"
+            "assert pivot.animation_data.action is not None, 'Pivot has no animation action'\n"
+            "print('TURNTABLE_ANIMATION_VALID')\n"
+        )
+
+        cmd = [
+            str(BLENDER_EXE),
+            "--background",
+            "--python-expr", check_script
+        ]
+
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 0, f"Blender turntable check failed:\n{result.stderr}\n{result.stdout}")
+        self.assertIn("TURNTABLE_ANIMATION_VALID", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

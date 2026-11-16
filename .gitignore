@@ -54,3 +54,4 @@ android/build/
 *.log
 .aircursor/
 
+*.blend1
