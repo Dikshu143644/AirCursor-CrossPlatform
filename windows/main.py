@@ -92,8 +92,8 @@ def print_banner() -> None:
     banner = (
         "\033[96m"
         "╔══════════════════════════════════════════════════════════════════════╗\n"
-        "║                        AirCursor for Windows                         ║\n"
-        "║            AirPods Head-Tracking Mouse & Gesture Engine              ║\n"
+        "║                   DOSCursor by DOS Company                           ║\n"
+        "║        Multimodal Spatial Computing & Human-Interface Suite          ║\n"
         "╚══════════════════════════════════════════════════════════════════════╝"
         "\033[0m"
     )

@@ -215,7 +215,10 @@ class TestWebRemoteServer(unittest.TestCase):
                 content_type = res.headers.get("Content-Type", "")
                 self.assertIn("text/html", content_type)
                 body = res.read().decode("utf-8")
-                self.assertIn("AirCursor Digital Screen Remote", body)
+                self.assertTrue(
+                    "DOSCursor Digital Screen Remote" in body or "AirCursor Digital Screen Remote" in body,
+                    "Expected DOSCursor or AirCursor title in HTML body"
+                )
                 self.assertIn("VIRTUAL SCREEN HUD", body)
                 self.assertIn("screen-canvas-wrapper", body)
                 self.assertIn("DIRECTIONAL PAD", body)

@@ -28,7 +28,9 @@ class TestPhysicalRemotesCompanionDialog(unittest.TestCase):
 
     def tearDown(self):
         try:
+            self.root.update_idletasks()
             self.root.destroy()
+            self.root.quit()
         except Exception:
             pass
 

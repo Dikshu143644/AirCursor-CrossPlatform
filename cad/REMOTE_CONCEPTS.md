@@ -1,18 +1,19 @@
-# AirCursor Physical Hardware Remote Concepts: Industrial Design & Engineering Specifications
+# DOSCursor Physical Hardware Remote Concepts: Industrial Design & Engineering Specifications
+### Engineered by DOS Company | Hardware Engineering & Industrial Design Group
 
-**Document Version:** 1.0.0  
-**Classification:** Confidential — AirCursor Hardware Engineering Group  
-**Author:** 3D Hardware CAD & Industrial Design Lead  
+**Document Version:** 2.0.0-DOS  
+**Classification:** Enterprise Hardware Architecture — DOS Company  
+**Author:** DOS 3D Hardware CAD & Industrial Design Lead  
 **Scope:** Concepts 1–5 Parametric Specifications, CMF, Ergonomics, Sensor Architecture, and Blender CAD Integration  
 
 ---
 
 ## 1. Executive Summary & Design Philosophy
 
-AirCursor transforms spatial computing by turning subtle head movements into high-precision pointer navigation. While computer-vision head tracking excels at broad, intuitive spatial control, physical interaction thrives when paired with low-latency tactile feedback, tactile indexing, and strain-free micro-actuation.
+**DOSCursor**, engineered by **DOS Company**, transforms spatial computing by turning subtle head movements and micro-gestures into high-precision pointer navigation. While computer-vision tracking excels at broad, intuitive spatial control, physical interaction thrives when paired with low-latency tactile feedback, tactile indexing, and strain-free micro-actuation.
 
-The **AirCursor Physical Remote Concepts** bridge spatial head tracking with physical micro-controls. Rather than replacing the head-tracking pointer, these five hardware archetypes act as symbiotic companions:
-1. **Zero-Fatigue Co-Navigation:** Head pose drives coarse cursor trajectory across multi-monitor canvases, while thumb and index fingers execute sub-pixel positioning, drag-locking, and velocity scrubbing.
+The **DOSCursor Physical Remote Concepts** (DOSRing Pro, DOSWand Elite, DOSPebble Touch, DOSClip Mini, and DOSDeck Controller) bridge spatial tracking with physical micro-controls. Rather than replacing the spatial pointer, these five hardware archetypes act as symbiotic companions:
+1. **Zero-Fatigue Co-Navigation:** Head pose and vision hand tracking drive coarse cursor trajectory across multi-monitor canvases, while thumb and index fingers execute sub-pixel positioning, drag-locking, and velocity scrubbing.
 2. **Tactile Grounding:** Physical switches and localized piezoelectric haptics eliminate the uncertainty of dwell clicks and mid-air pinch gestures.
 3. **Multi-Modal Redundancy:** Provides immediate fallback when webcams are occluded, in low-light environments, or during high-stakes presentations and CAD drafting sessions.
 
@@ -22,9 +23,9 @@ The **AirCursor Physical Remote Concepts** bridge spatial head tracking with phy
 
 ```
 +----------------------------------------------------------------------------------------------------+
-|                                    AIRCURSOR REMOTE FAMILY                                         |
+|                                    DOSCURSOR REMOTE FAMILY (DOS COMPANY)                           |
 +-------------------+--------------------+--------------------+--------------------+-----------------+
-|  AirRing Pro      |  AirWand Elite     |  AirPebble Touch   |  AirClip Mini      |  AirDeck        |
+|  DOSRing Pro      |  DOSWand Elite     |  DOSPebble Touch   |  DOSClip Mini      |  DOSDeck        |
 |  (Wearable Ring)  |  (Ergonomic Wand)  |  (Desk River Puck) |  (14g Lapel Clip)  |  (Thumb Deck)   |
 |  8.8g | Titanium  |  52g | Aluminum    |  64g | Glass/Alum  |  14g | CFRP/Steel  |  68g | Mg-Alloy |
 +-------------------+--------------------+--------------------+--------------------+-----------------+
